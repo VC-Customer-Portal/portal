@@ -1,0 +1,3 @@
+[build]
+  functions = "E:\\Github\\portal\\customer-express\\netlify\\functions"
+  publish = "E:\\Github\\portal\\frontend\\dist"

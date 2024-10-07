@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "netlify dev",
+    "build": "netlify-lambda build functions",
+    "serve": "netlify-lambda serve functions",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

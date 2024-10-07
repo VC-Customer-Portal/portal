@@ -24,7 +24,7 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const response = await fetch('http://localhost:8888/api/login', {
+    const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

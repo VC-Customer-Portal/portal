@@ -65,7 +65,7 @@ const UserPayments: React.FC = () => {
     useEffect(() => {
         const fetchPayments = async () => {
             try {
-                const response = await fetch("http://localhost:8888/api/mypayments", {
+                const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/mypayments`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

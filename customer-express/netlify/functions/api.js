@@ -5,6 +5,9 @@ import ServerlessHttp from 'serverless-http';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
 const resend = new Resend(process.env.RESEND_API_KEY);

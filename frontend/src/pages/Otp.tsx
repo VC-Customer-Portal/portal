@@ -35,7 +35,7 @@ const Otp: React.FC<OtpProps> = ({ onLogin }) => {
 
         const sessionToken = sessionStorage.getItem('sessionToken');
         console.log('Token: ', sessionToken);
-        const response = await fetch('http://localhost:8888/api/verify-otp', {
+        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/verify-otp`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

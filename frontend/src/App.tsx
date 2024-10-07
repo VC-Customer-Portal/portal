@@ -68,7 +68,7 @@ function App() {
 
   const handleLogout = async () => {
     const sessionToken = sessionStorage.getItem('sessionToken')
-    const response = await fetch('http://localhost:8888/api/logout', {
+    const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/logout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

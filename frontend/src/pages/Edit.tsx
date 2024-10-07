@@ -53,7 +53,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
     useEffect(() => {
         const fetchPayments = async () => {
             try {
-                const response = await fetch("http://localhost:8888/api/userdetails", {
+                const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/userdetails`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -94,7 +94,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
     }, [message]);
 
     const handleUserSaveChanges = async () => {
-        const response = await fetch('http://localhost:8888/api/edituser', {
+        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/edituser`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -116,7 +116,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
     const handlePasswordSaveChanges = async () => {
 
         try{
-        const response = await fetch('http://localhost:8888/api/changepassword', {
+        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/changepassword`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -147,7 +147,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
 
     const handleLogout = async () => {
         const sessionToken = sessionStorage.getItem('sessionToken')
-        const response = await fetch('http://localhost:8888/api/logout', {
+        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

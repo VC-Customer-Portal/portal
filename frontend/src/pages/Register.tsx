@@ -51,7 +51,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister }) => {
       return;
     }
 
-    const response = await fetch('http://localhost:8888/api/register', {
+    const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

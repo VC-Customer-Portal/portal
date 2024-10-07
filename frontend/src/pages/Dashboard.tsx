@@ -25,7 +25,7 @@ const Dashboard: React.FC = () => {
     setIsSending(true)
     e.preventDefault();
 
-    const response = await fetch('http://localhost:8888/api/customerform', {
+    const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/customerform`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

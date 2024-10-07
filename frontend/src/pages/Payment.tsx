@@ -158,7 +158,7 @@ const Payment: React.FC<PaymentProps> = ({ onPayment }) => {
             })
             console.log(body)
 
-            const response = await fetch("http://localhost:8888/api/address", {
+            const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/address`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -198,7 +198,7 @@ const Payment: React.FC<PaymentProps> = ({ onPayment }) => {
             })
             console.log(body)
 
-            const response = await fetch("http://localhost:8888/api/payment", {
+            const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/payment`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -240,7 +240,7 @@ const Payment: React.FC<PaymentProps> = ({ onPayment }) => {
             })
             console.log(body)
 
-            const response = await fetch("http://localhost:8888/api/payment", {
+            const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/payment`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -285,7 +285,7 @@ const Payment: React.FC<PaymentProps> = ({ onPayment }) => {
             })
 
             console.log(body)
-            const response = await fetch("http://localhost:8888/api/payment", {
+            const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/payment`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -327,7 +327,7 @@ const Payment: React.FC<PaymentProps> = ({ onPayment }) => {
             })
             console.log(body)
 
-            const response = await fetch("http://localhost:8888/api/payment", {
+            const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/payment`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -358,7 +358,7 @@ const Payment: React.FC<PaymentProps> = ({ onPayment }) => {
     useEffect(() => {
         const fetchAddresses = async () => {
             try {
-                const response = await fetch("http://localhost:8888/api/myaddresses", {
+                const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/myaddresses`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

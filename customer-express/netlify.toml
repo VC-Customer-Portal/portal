@@ -1,4 +1,4 @@
-functionsDirectory = "E:\\Github\\vc-customer-portal\\customer-express\\netlify\\functions"
+functionsDirectory = "E:\\Github\\portal\\customer-express\\netlify\\functions"
 functionsDirectoryOrigin = "config-v1"
 redirectsOrigin = "config"
 plugins = []
@@ -6,7 +6,7 @@ headers = []
 
 [build]
 node_bundler = "esbuild"
-functions = "E:\\Github\\vc-customer-portal\\customer-express\\netlify\\functions"
+functions = "E:\\Github\\portal\\customer-express\\netlify\\functions"
 
   [build.environment]
 

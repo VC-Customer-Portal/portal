@@ -303,7 +303,7 @@ router.post('/login', async (req, res) => {
         }
 
         // Check if email is confirmed
-        if (!user.confirmed_email) {
+        if (user.confirmed_email === false) {
             return res.status(400).json({ message: 'Please verify your account' });
         }
 

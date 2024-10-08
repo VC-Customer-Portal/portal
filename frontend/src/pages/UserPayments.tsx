@@ -35,80 +35,39 @@ import {
 import { ChevronDown } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import PaymentDialog from "@/components/PaymentDialog"
-
-interface Payment {
-    id: string
-    amount: number
-    card_number?: string
-    expire_date?: string
-    cvv?: string
-    fullname: string
-    email: string
-    method_id: number
-}
+import Payment from "@/models/Payment"
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"]
 
 const UserPayments: React.FC = () => {
+    // Variables to hold states for values
     const sessionToken = sessionStorage.getItem('sessionToken')
+    const [loading, setLoading] = useState<boolean>(true)
+
+    // Payment States
     const [payments, setPayments] = useState<Payment[]>([])
     const [creditCardPayments, setCreditCardPayments] = useState<Payment[]>([])
     const [paypalPayments, setPaypalPayments] = useState<Payment[]>([])
     const [stripePayments, setStripePayments] = useState<Payment[]>([])
     const [applePayPayments, setApplePayPayments] = useState<Payment[]>([])
+
+    // Amount States
     const [totalCreditCardAmount, setTotalCreditCardAmount] = useState<number>(0)
     const [totalPaypalAmount, setTotalPaypalAmount] = useState<number>(0)
     const [totalStripeAmount, setTotalStripeAmount] = useState<number>(0)
     const [totalApplePayAmount, setTotalApplePayAmount] = useState<number>(0)
-    const [loading, setLoading] = useState<boolean>(true)
 
-    useEffect(() => {
-        const fetchPayments = async () => {
-            try {
-                const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/mypayments`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ token: sessionToken })
-                })
-                const data = await response.json()
+    const [sorting, setSorting] = useState<SortingState>([])
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+    const [rowSelection, setRowSelection] = useState({})
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
-                if (response.ok) {
-                    const allPayments = data.payments
-                    console.log(allPayments)
 
-                    // Separate payments based on method_id
-                    const creditCard = allPayments.filter((payment: Payment) => payment.method_id === 1)
-                    const paypal = allPayments.filter((payment: Payment) => payment.method_id === 2)
-                    const stripe = allPayments.filter((payment: Payment) => payment.method_id === 3)
-                    const applePay = allPayments.filter((payment: Payment) => payment.method_id === 4)
-
-                    setPayments(allPayments)
-                    setCreditCardPayments(creditCard)
-                    setPaypalPayments(paypal)
-                    setStripePayments(stripe)
-                    setApplePayPayments(applePay)
-
-                    setTotalCreditCardAmount(parseFloat(creditCard.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
-                    setTotalPaypalAmount(parseFloat(paypal.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
-                    setTotalStripeAmount(parseFloat(stripe.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
-                    setTotalApplePayAmount(parseFloat(applePay.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
-                    setTimeout(() => {
-                    }, 5000);
-                } else {
-                    console.error(data.message)
-                }
-            } catch (error) {
-                console.error("Error fetching payments:", error)
-            } finally {
-                setLoading(false)  // Mark loading as complete
-            }
-        }
-
-        fetchPayments()
-    }, [sessionToken])
-
+    /*
+        Pie Chart and Bar Chart Data
+    */
     const pieChartData = [
         { name: "Credit Card", value: creditCardPayments.length },
         { name: "PayPal", value: paypalPayments.length },
@@ -123,9 +82,11 @@ const UserPayments: React.FC = () => {
         { name: "Apple Pay", amount: totalApplePayAmount },
     ]
 
+    // values Shown in PieChart and Bar Chart
     const totalPayments = payments.length
     const totalAmount = barChartData.reduce((sum, entry) => sum + entry.amount, 0)
 
+    // Chart Config
     const chartConfig = {
         creditCard: {
             label: "Credit Card",
@@ -145,8 +106,9 @@ const UserPayments: React.FC = () => {
         },
     }
 
+    // Used to show PieChart
     const renderPieChart = () => (
-        <Card className="w-full md:w-1/2 m-10">
+        <Card className="w-full md:w-1/2 m-10 flex-1">
             <CardHeader>
                 <CardTitle>Payment Distribution</CardTitle>
                 <CardDescription>Distribution of payments by payment method</CardDescription>
@@ -200,8 +162,10 @@ const UserPayments: React.FC = () => {
         </Card>
     )
 
+
+    // Used to Show  BarChart
     const renderBarChart = () => (
-        <Card className="w-full md:w-1/2 m-10 -ml-2">
+        <Card className="w-full md:w-1/2 m-10 flex-1">
             <CardHeader>
                 <CardTitle>Total Amount by Payment Method</CardTitle>
                 <CardDescription>Total amount of payments for each method</CardDescription>
@@ -235,6 +199,8 @@ const UserPayments: React.FC = () => {
         </Card>
     )
 
+
+    // Table Columns Config
     const columns: ColumnDef<Payment>[] = [
         {
             accessorKey: "id",
@@ -274,25 +240,23 @@ const UserPayments: React.FC = () => {
         },
     ]
 
-    const [sorting, setSorting] = useState<SortingState>([])
-    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-    const [rowSelection, setRowSelection] = useState({})
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
 
+    /*
+        Used for DataTable Row Click and Dialog Display
+    */
     const handleRowClick = (payment: Payment) => {
         setSelectedPayment(payment);
         setIsDialogOpen(true);
-      };
-    
-      const handleCloseDialog = () => {
-        setIsDialogOpen(false);
-        setSelectedPayment(null); // Clear selected payment
-      };
-    
+    };
 
+    const handleCloseDialog = () => {
+        setIsDialogOpen(false);
+        setSelectedPayment(null);
+    };
+
+
+    // Config for Table
     const table = useReactTable({
         data: payments,
         columns,
@@ -317,7 +281,7 @@ const UserPayments: React.FC = () => {
         }
     })
 
-
+    // Used to Render the Data Table
     const renderDataTable = () => (
         <Card className="w-full">
             <CardHeader>
@@ -448,6 +412,52 @@ const UserPayments: React.FC = () => {
             </div>
         </div>
     }
+
+    useEffect(() => {
+        const fetchPayments = async () => {
+            try {
+                const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/mypayments`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ token: sessionToken })
+                })
+                const data = await response.json()
+
+                if (response.ok) {
+                    const allPayments = data.payments
+                    console.log(allPayments)
+
+                    const creditCard = allPayments.filter((payment: Payment) => payment.method_id === 1)
+                    const paypal = allPayments.filter((payment: Payment) => payment.method_id === 2)
+                    const stripe = allPayments.filter((payment: Payment) => payment.method_id === 3)
+                    const applePay = allPayments.filter((payment: Payment) => payment.method_id === 4)
+
+                    setPayments(allPayments)
+                    setCreditCardPayments(creditCard)
+                    setPaypalPayments(paypal)
+                    setStripePayments(stripe)
+                    setApplePayPayments(applePay)
+
+                    setTotalCreditCardAmount(parseFloat(creditCard.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
+                    setTotalPaypalAmount(parseFloat(paypal.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
+                    setTotalStripeAmount(parseFloat(stripe.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
+                    setTotalApplePayAmount(parseFloat(applePay.reduce((sum: number, payment: Payment) => sum + payment.amount, 0).toFixed(2)))
+                    setTimeout(() => {
+                    }, 5000);
+                } else {
+                    console.error(data.message)
+                }
+            } catch (error) {
+                console.error("Error fetching payments:", error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchPayments()
+    }, [sessionToken])
 
     return (
         <div className="flex flex-col w-full">

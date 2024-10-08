@@ -6,87 +6,118 @@ import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import path from "path";
+import fs from "fs";
+import xssClean from "xss-clean";
+import { rateLimit } from "express-rate-limit";
+import cors from "cors";
+import https from "https";
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API);
 const resend = new Resend(process.env.RESEND_API_KEY);
-const supabase = createClient('https://tmpymdpnixbbeskepjlh.supabase.co', process.env.SUPABASE_KEY)
+const supabase = createClient('https://tmpymdpnixbbeskepjlh.supabase.co', process.env.SUPABASE_KEY);
+const reCaptchaKey = process.env.RECAPTCHA_SECRET;
 const router = Router();
 const app = express();
-app.use(express.json());
+app.set('trust proxy', true);
 
+const corsOptions = {
+    origin: 'https://apdscustomerportal.online',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+
+app.options('*', cors(corsOptions));
+
+app.use(express.json());
+app.use(xssClean());
+
+// Clickjacking Protection
 app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*"); // Allow requests from all origins
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(200);
-    }
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none';");
     next();
 });
 
-// Function to send email
-const sendConfirmationEmail = async (email, htmlMessage) => {
-    try {
-        const { data, error } = await resend.emails.send({
-            from: "APDS Verify Email <noreplyverify@apdscustomerportal.online>",
-            to: [email],
-            subject: "Confirm your email",
-            html: htmlMessage,
-        });
+// HSTS for MITM protection
+app.use((req, res, next) => {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    next();
+});
 
-        if (error) {
-            console.error(`Failed to send email: ${error.message}`);
-        } else {
-            console.log('Email sent:', data);
-        }
+// CSP for XSS Protection
+app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'trusted-cdn.com';");
+    next();
+});
 
-    } catch (error) {
-        console.error('Error sending email:', error);
+// Limit Requests made to protect against DDOS
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    keyGenerator: (req, res) => {
+        return req.ip;
     }
-};
+});
 
-const sendPaymentEmail = async (email, htmlMessage) => {
-    try {
-        const { data, error } = await resend.emails.send({
-            from: "APDS Payment Confirmation <noreplypayment@apdscustomerportal.online>",
-            to: [email],
-            subject: "Payment Sucessful!",
-            html: htmlMessage,
-        });
-
-        if (error) {
-            console.error(`Failed to send email: ${error.message}`);
-        } else {
-            console.log('Email sent:', data);
-        }
-
-    } catch (error) {
-        console.error('Error sending email:', error);
-    }
-};
+app.use(limiter)
 
 
-// Helper to generate a random string
-const generateConfirmationCode = (length) => {
-    return crypto.randomBytes(length).toString('hex').slice(0, length);
-};
 
-const generateAccountNumber = () => {
-    return Math.floor(10000000 + Math.random() * 90000000);
-};
 
-const generateOTP = () => {
-    return Math.floor(100000 + Math.random() * 900000); // Ensures a 6-digit number
-};
 
-// Updated register route to handle sending confirmation email
+/*
+    TYPE : AUTH
+    API Endpoints that are used for User Functionality
+    Register, Login, Verify Email, Otp, Change Password, Forgot Password, Logout
+*/
+
+
+
+// API EndPoint used for Registering New User and 
+// Sending Verify Email
+// POST
+// Request Body (fullname, email, password, capVal)
 router.post('/register', async (req, res) => {
-    const { fullname, email, password } = req.body;
+    const { fullname, email, password, capVal } = req.body;
     const timestamp = new Date().toISOString();
+    const recaptchaUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${reCaptchaKey}&response=${capVal}`;
 
     try {
+
+        const recaptchaResponse = await new Promise((resolve, reject) => {
+            const req = https.request(recaptchaUrl, { method: 'POST' }, (response) => {
+                let data = '';
+
+                // Collect data chunks
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+
+                // Resolve the promise when the response ends
+                response.on('end', () => {
+                    resolve(JSON.parse(data)); // Parse the JSON response
+                });
+            });
+
+            // Handle errors
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            // End the request
+            req.end();
+        });
+
+        // Check if reCAPTCHA validation was successful
+        if (!recaptchaResponse.success) {
+            return res.status(400).json({ message: 'ReCAPTCHA validation failed' });
+        }
+
         // Check if user with the same email already exists
         console.info(`[${timestamp}] Checking for existing user with email: ${email}`);
 
@@ -139,16 +170,9 @@ router.post('/register', async (req, res) => {
         }
 
         // Construct confirmation link
-        const confirmationLink = `http://localhost:8888/api/confirm-email?id=${newUser.id}&confirmation_gen=${confirmationGen}`;
+        const confirmationLink = `https://dapper-creponne-3b9deb.netlify.app/api/confirm-email?id=${newUser.id}&confirmation_gen=${confirmationGen}`;
 
-        // Send confirmation email
-        const emailMessage = `
-            <p>Hi ${fullname},</p>
-            <p>Please confirm your email by clicking the link below:</p>
-            <a href="${confirmationLink}">Confirm Email</a>
-        `;
-
-        await sendConfirmationEmail(email, emailMessage);
+        await sendConfirmationEmail(email, fullname, confirmationLink);
 
         console.info(`[${timestamp}] User registered and confirmation email sent: ${email}`);
         return res.status(201).json({
@@ -162,6 +186,11 @@ router.post('/register', async (req, res) => {
     }
 });
 
+
+// API EndPoint used for Confirming Users Email and 
+// Sending them their Account Number with Email
+// GET
+// Request PARAMS (userid, confirmationgen)
 router.get('/confirm-email', async (req, res) => {
     const { id, confirmation_gen } = req.query;
 
@@ -201,17 +230,10 @@ router.get('/confirm-email', async (req, res) => {
             return res.status(500).json({ message: 'Error updating user confirmation status' });
         }
 
-        // Send confirmation email
-        const emailMessage = `
-            <p>Hi ${user.fullname},</p>
-            <p>Bellow is your account number you can use when signing in:</p>
-            <p>${accountNumber}</p>
-        `;
-
-        await sendConfirmationEmail(user.email, emailMessage);
+        await sendAccountEmail(user.email, user.fullname, accountNumber);
 
         // Redirect to success page after email confirmation
-        return res.redirect('http://localhost:5173/login'); // Redirect to a different link/page after confirmation
+        return res.redirect('https://apdscustomerportal.online/login'); // Redirect to a different link/page after confirmation
 
     } catch (error) {
         console.error('Unexpected error during email confirmation:', error);
@@ -219,11 +241,45 @@ router.get('/confirm-email', async (req, res) => {
     }
 });
 
-// Login endpoint
+
+// API EndPoint used for Login for User and 
+// Sending OTP Email
+// POST
+// Request Body (accountNumber, password)
 router.post('/login', async (req, res) => {
-    const { accountNumber, password } = req.body;
+    const { accountNumber, password, capVal } = req.body;
+    const recaptchaUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${reCaptchaKey}&response=${capVal}`;
 
     try {
+        const recaptchaResponse = await new Promise((resolve, reject) => {
+            const req = https.request(recaptchaUrl, { method: 'POST' }, (response) => {
+                let data = '';
+
+                // Collect data chunks
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+
+                // Resolve the promise when the response ends
+                response.on('end', () => {
+                    resolve(JSON.parse(data)); // Parse the JSON response
+                });
+            });
+
+            // Handle errors
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            // End the request
+            req.end();
+        });
+
+        // Check if reCAPTCHA validation was successful
+        if (!recaptchaResponse.success) {
+            return res.status(400).json({ message: 'ReCAPTCHA validation failed' });
+        }
+
         // Fetch user based on email
         const { data: user, error: selectError } = await supabase
             .from('users')
@@ -271,15 +327,7 @@ router.post('/login', async (req, res) => {
             return res.status(500).json({ message: 'Error creating OTP' });
         }
 
-        // Send confirmation email
-        const emailMessage = `
-            <p>Hi ${user.fullname},</p>
-            <p>Bellow is your OTP you can use to login:</p>
-            <p>${otp}</p>
-        `;
-
-        await sendConfirmationEmail(user.email, emailMessage);
-
+        await sendOtpEmail(user.email, user.fullname, otp);
 
         // Respond with session token and redirect to OTP page
         return res.status(200).json({
@@ -293,6 +341,10 @@ router.post('/login', async (req, res) => {
     }
 });
 
+
+// API EndPoint used for Verifying OTP user used to Login
+// POST
+// Request Body (otp, sessionToken)
 router.post('/verify-otp', async (req, res) => {
     const { otp, sessionToken } = req.body;
 
@@ -334,14 +386,67 @@ router.post('/verify-otp', async (req, res) => {
     }
 });
 
-// Validate session endpoint
-router.post('/validate-session', async (req, res) => {
-    const { token } = req.body;
 
-    // Ensure the token is provided
-    if (!token) {
-        return res.status(400).json({ message: 'Session token is required' });
+// API EndPoint used for Reseting Users Password and 
+// Sending them their new Password with Email
+// Post
+// Request PARAMS (accountNumber, token)
+router.post('/forgotpassword', async (req, res) => {
+    const { accountNumber, token } = req.query;
+
+    try {
+        // Fetch user based on id and confirmation_gen
+        const { data: user, error: selectError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('session_token', token)
+            .eq('account_number', accountNumber)
+            .maybeSingle();
+
+        if (selectError) {
+            console.error(`Error fetching user for forgot password: ${selectError.message}`);
+            return res.status(500).json({ message: 'Error fetching user for forgot password' });
+        }
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid forgot password link or user not found' });
+        }
+
+        const passwordGenerated = generatePassword();
+
+        // Hash the password
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(passwordGenerated, saltRounds);
+
+        const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({
+                password: hashedPassword
+            })
+            .eq('id', user.id);
+
+        if (updateError) {
+            console.error(`Error updating user password: ${updateError.message}`);
+            return res.status(500).json({ message: 'Error updating user password' });
+        }
+
+        await sendPasswordEmail(user.email, user.fullname, passwordGenerated);
+
+        // Redirect to success page after email confirmation
+        return res.redirect('https://apdscustomerportal.online/login'); // Redirect to a different link/page after confirmation
+
+    } catch (error) {
+        console.error('Unexpected error during dorgot password:', error);
+        return res.status(500).json({ message: 'An unexpected error occurred', error: error.message });
     }
+});
+
+
+// API EndPoint used to Change Password of Authenticated User
+// POST
+// Request Body (token, password, newpassword)
+router.post('/changepassword', async (req, res) => {
+    const { token, password, newpassword } = req.body;
 
     const { data: user, error: selectError } = await supabase
         .from('users')
@@ -349,10 +454,9 @@ router.post('/validate-session', async (req, res) => {
         .eq('session_token', token)  // Ensure to use the provided token
         .maybeSingle();
 
-    // Handle potential errors during user fetching
     if (selectError) {
         console.error(`Error fetching user with session token: ${selectError.message}`);
-        return res.status(500).json({ message: 'Error fetching user with session token' });
+        return res.status(500).json({ message: 'Error fetching addresses' });
     }
 
     // Check if a user was found
@@ -360,13 +464,32 @@ router.post('/validate-session', async (req, res) => {
         return res.status(400).json({ message: 'Invalid session token' });
     }
 
-    // Respond with user data and otp_complete status
-    return res.status(200).json({
-        message: 'Session token is valid',
-        otp_complete: user.otp_complete // Assuming otp_complete is a field in the users table
-    });
+    // Check hashed password
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    if (!isPasswordMatch) {
+        return res.status(400).json({ message: 'Current Invalid Password' });
+    }
+
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newpassword, saltRounds);
+
+    const { data: passwordChange, error: passwordError } = await supabase
+        .from('users')
+        .update({ password: hashedPassword }) // Clear the OTP and session token
+        .eq('id', user.id);
+
+    if (passwordError) {
+        console.error(`Error Changing Pasword`);
+        return res.status(500).json({ message: 'Error Changing Password' });
+    }
+
+    return res.status(200).json({ message: 'Password Changed Successfully!' });
 });
 
+
+// API EndPoint used to Logout User and clear sessiontoken and otp
+// POST
+// Request Body (token, password, newpassword)
 router.post('/logout', async (req, res) => {
     const { sessionToken } = req.body;
 
@@ -394,6 +517,21 @@ router.post('/logout', async (req, res) => {
     return res.status(200).json({ message: 'Logout successful!' });
 });
 
+
+
+
+/*
+    TYPE : USER CALLED ENDPOINTS
+    PROTECTED USING TOKEN FOR ALL CALLS TO VALIDATE
+    API Endpoints that are used for User Functionality
+    Register, Login, Verify Email, Otp, Change Password, Forgot Password, Logout
+*/
+
+
+
+// API EndPoint used to Add a new Address to a user
+// POST
+// Request Body (line_1, line_2, province, city, postal_code, token)
 router.post('/address', async (req, res) => {
     const { line_1, line_2, province, city, postal_code, token } = req.body;
 
@@ -425,6 +563,9 @@ router.post('/address', async (req, res) => {
 });
 
 
+// API EndPoint used to fetch all addresses of Authenticated User
+// POST
+// Request Body (token)
 router.post('/myaddresses', async (req, res) => {
     const { token } = req.body;
 
@@ -457,37 +598,10 @@ router.post('/myaddresses', async (req, res) => {
 });
 
 
-const validateCard = (cardNumber) => {
-    const nDigits = cardNumber.length;
-    let sum = 0;
-    let isSecond = false;
-    for (let i = nDigits - 1; i >= 0; i--) {
-        let d = cardNumber.charAt(i);
-        if (isSecond) {
-            d = (parseInt(d) * 2).toString();
-            if (d.length > 1) {
-                d = (parseInt(d.charAt(0)) + parseInt(d.charAt(1))).toString();
-            }
-        }
-        sum += parseInt(d);
-        isSecond = !isSecond;
-    }
-    return sum % 10 === 0;
-};
-
-// Function to validate expiration date
-const validateExpirationDate = (expirationDate) => {
-    const [month, year] = expirationDate.split("/").map((item) => parseInt(item, 10));
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear() % 100; // Get last two digits of the year
-
-    // Check if the card is expired
-    return (
-        year > currentYear || (year === currentYear && month >= currentMonth)
-    );
-};
-
+// API EndPoint used to make a new payment for a Authenticted User and 
+// Sending Email with Payment Information
+// POST
+// Request Body (email, fullName, paymentMethod, cardNumber, expirationDate, cvv, amount, token)
 router.post("/payment", async (req, res) => {
     const { email, fullName, paymentMethod, cardNumber, expirationDate, cvv, amount, token } = req.body;
 
@@ -538,18 +652,18 @@ router.post("/payment", async (req, res) => {
         return res.status(500).json({ message: "Error saving payment." });
     }
 
-    const emailMessage = `
-            <p>Hi ${fullName},</p>
-            <p>Payment was Sucessful:</p>
-            <p>Amount: R ${amount} </p>
-        `;
+    const paymentMethodName = getPaymentMethodName(paymentMethod);
 
-    await sendPaymentEmail(email, emailMessage);
+    await sendPaymentEmail(fullName, email, amount, paymentMethodName);
 
     // Return success response
     res.status(201).json({ message: "Payment processed successfully.", data });
 });
 
+
+// API EndPoint used to get payments of Authenticated User
+// POST
+// Request Body (token)
 router.post('/mypayments', async (req, res) => {
     const { token } = req.body;
 
@@ -582,7 +696,9 @@ router.post('/mypayments', async (req, res) => {
 });
 
 
-// Fetch User Details Endpoint (refactored)
+// API EndPoint used to fetch details of Authenticated User
+// POST
+// Request Body (token)
 router.post('/userdetails', async (req, res) => {
     const { token } = req.body;
 
@@ -606,6 +722,10 @@ router.post('/userdetails', async (req, res) => {
     return res.status(200).json({ message: 'User retrieved successfully!', user: user });
 });
 
+
+// API EndPoint used to Update Information of Authenticated User
+// POST
+// Request Body (token, fullname, email)
 router.post('/edituser', async (req, res) => {
     const { token, fullname, email } = req.body;
 
@@ -633,53 +753,80 @@ router.post('/edituser', async (req, res) => {
     return res.status(200).json({ message: 'User updated successfully!', user: user });
 });
 
-router.post('/changepassword', async (req, res) => {
-    const { token, password, newpassword } = req.body;
 
-    const { data: user, error: selectError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('session_token', token)  // Ensure to use the provided token
-        .maybeSingle();
+// API EndPoint used when Authenticated User submits contact form and 
+// Send Email with AI Response
+// POST
+// Request Body (token, password, newpassword)
+router.post("/customerform", async (req, res) => {
+    const { fullname, email, message } = req.body;
 
-    if (selectError) {
-        console.error(`Error fetching user with session token: ${selectError.message}`);
-        return res.status(500).json({ message: 'Error fetching addresses' });
+    const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: `You are a helpful and professional customer service representative for the PayView Payment Portal. The PayView platform allows users to make payments and view a comprehensive record of all their transactions through interactive charts and tables. The portal's key features include secure payment options and detailed visualizations of payment history. Your job is to assist users with navigating these features, answering queries, and addressing any concerns they have.
+
+When a user submits a question through the customer support form, you are required to generate a response that is well-structured and easy to understand. Ensure your responses are formatted strictly in HTML (no Markdown or plaintext). Use appropriate HTML tags such as <p> for paragraphs, <h3> for headings, <ul> or <ol> for lists, and <a> for links. Maintain a friendly, professional tone in all communications, ensuring that you answer the user’s query clearly and thoroughly.
+Key Features to Emphasize:
+
+    Payment Options:
+        Users can make payments through four secure methods: Credit Card, Stripe, Apple Pay, and PayPal.
+        Ensure you can explain the process of making payments, common troubleshooting tips, and how to resolve payment failures.
+
+    Viewing Payment History:
+        Users can view their payment history through both charts that visualize their payment methods and amounts, as well as a table that displays all payment transactions in detail.
+        If users ask about understanding the charts, help them interpret the graphical representation of their payment trends and methods. The table allows users to filter and sort payment data for detailed review.
+
+    Navigational Guidance:
+        Always provide direct links to relevant sections of the portal when applicable.
+        For example:
+            Profile Editing(Navbar Right): <a href="https://apdscustomerportal.online/edit">Edit Profile</a>
+            Make a Payment(Navbar Centre): <a href="https://apdscustomerportal.online/payment">Make a Payment</a>
+            View Payments(Navbar Centre): <a href="https://apdscustomerportal.online/mypayments">View Payments</a>
+            Contact Support(Dashboard): <a href="https://apdscustomerportal.online/dashboard#contact">Submit a Query</a>
+        Ensure users know how to access these sections of the portal based on their query.
+
+Guidelines for Responses:
+
+    Personalize the response: Use the user's name in your reply. Ensure that the email and message they submitted are acknowledged directly in the reply.
+    Friendly and professional tone: Use a warm, approachable tone, but maintain professionalism.
+    HTML formatting: All responses must be formatted in HTML for proper display. Avoid Markdown or plaintext.
+    
+    The user ${fullname}, with email ${email}, has asked the following question: "${message}"`
+
+    });
+
+    try {
+        // Try to get AI response with retry logic in case of service overload
+        const responseText = await fetchAIResponseWithRetry(model, message, 3, 2000);
+
+        // Send the AI-generated response via email
+        await sendContactEmail(email, responseText);
+
+        // Return the generated response as JSON
+        res.status(200).json({ message: 'Expect a Email response shortly...' });
+    } catch (error) {
+        console.error("Error generating content:", error);
+        res.status(500).json({
+            message: "Sorry, something went wrong. Please try again later.",
+            error: error.message
+        });
     }
-
-    // Check if a user was found
-    if (!user) {
-        return res.status(400).json({ message: 'Invalid session token' });
-    }
-
-    // Check hashed password
-    const isPasswordMatch = await bcrypt.compare(password, user.password);
-    if (!isPasswordMatch) {
-        return res.status(400).json({ message: 'Current Invalid Password' });
-    }
-
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(newpassword, saltRounds);
-
-    const { data: passwordChange, error: passwordError } = await supabase
-        .from('users')
-        .update({ password: hashedPassword }) // Clear the OTP and session token
-        .eq('id', user.id);
-
-    if (passwordError) {
-        console.error(`Error Changing Pasword`);
-        return res.status(500).json({ message: 'Error Changing Password' });
-    }
-
-    return res.status(200).json({ message: 'Password Changed Successfully!' });
 });
 
-// Update User Details Endpoint
-router.put('/user', async (req, res) => {
 
-});
 
-// Helper function to retry the AI request in case of service overload
+/*
+    TYPE : HELPER FUNCTIONS
+    API Endpoints that are used for User Functionality
+    Register, Login, Verify Email, Otp, Change Password, Forgot Password, Logout
+*/
+
+
+
+// Helper Function used to get AI response for Contact Form
+// Caller (/customerform)
+// RETURN (resonse or error)
+// PARAMS (model, message, retries, delay)
 async function fetchAIResponseWithRetry(model, message, retries = 3, delay = 1000) {
     for (let i = 0; i < retries; i++) {
         try {
@@ -697,39 +844,264 @@ async function fetchAIResponseWithRetry(model, message, retries = 3, delay = 100
     throw new Error("The model is overloaded. Please try again later."); // After retries
 }
 
-router.post("/customerform", async (req, res) => {
-    const { fullname, email, message } = req.body;
+// Helper Function used to Generate Confirmation Code
+// Caller (/register)
+// RETURN (confirmationCode)
+// PARAMS (length)
+const generateConfirmationCode = (length) => {
+    return crypto.randomBytes(length).toString('hex').slice(0, length);
+};
 
-    const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: `You are a helpful and professional customer service representative. The user ${fullname}, with email ${email}, has asked the following question: "${message}". Please respond in a friendly and informative tone, ensuring that the response is formatted strictly in HTML (no markdown or plaintext allowed). Include HTML tags for proper formatting, such as paragraphs, headings, and lists if necessary.
+// Helper Function used to Generate Account Number
+// Caller (/confirm-email)
+// RETURN (accountNumber)
+// PARAMS (none)
+const generateAccountNumber = () => {
+    return Math.floor(10000000 + Math.random() * 90000000);
+};
 
-Ensure the sign-off is structured as follows:
-<p>Thanks for getting in contact,</p>
-<p><strong>APDS Customer Portal</strong></p>`
+// Helper Function used to Generate OTP
+// Caller (/login)
+// RETURN (otp)
+// PARAMS (none)
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000); // Ensures a 6-digit number
+};
 
-    });
+// Helper Function used to Generate Password
+// Caller (/forgotpassword)
+// RETURN (password)
+// PARAMS (none)
+function generatePassword() {
+    const upperCaseChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowerCaseChars = 'abcdefghijklmnopqrstuvwxyz';
+    const numberChars = '0123456789';
+    const specialChars = '!@#$%^&*(),.?":{}|<>';
 
-    try {
-        // Try to get AI response with retry logic in case of service overload
-        const responseText = await fetchAIResponseWithRetry(model, message, 3, 2000);
+    let password = '';
 
-        // Send the AI-generated response via email
-        await sendEmail(email, responseText);
+    // Ensure at least one character from each category
+    password += upperCaseChars[Math.floor(Math.random() * upperCaseChars.length)];
+    password += lowerCaseChars[Math.floor(Math.random() * lowerCaseChars.length)];
+    password += numberChars[Math.floor(Math.random() * numberChars.length)];
+    password += specialChars[Math.floor(Math.random() * specialChars.length)];
 
-        // Return the generated response as JSON
-        res.status(200).json({ message: 'Expect a Email response shortly...' });
-    } catch (error) {
-        console.error("Error generating content:", error);
-        res.status(500).json({
-            message: "Sorry, something went wrong. Please try again later.",
-            error: error.message
-        });
+    // Generate remaining characters randomly
+    const allChars = upperCaseChars + lowerCaseChars + numberChars + specialChars;
+    const remainingLength = 8 - password.length;
+
+    for (let i = 0; i < remainingLength; i++) {
+        password += allChars[Math.floor(Math.random() * allChars.length)];
     }
-});
 
-// Function to send email
-const sendEmail = async (email, htmlMessage) => {
+    // Shuffle the password to avoid predictable order
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+// Helper Function used to validate a Card Number (Credit Card, Stripe)
+// Caller (/payment)
+// RETURN (true or false)
+// PARAMS (cardNumber)
+const validateCard = (cardNumber) => {
+    const nDigits = cardNumber.length;
+    let sum = 0;
+    let isSecond = false;
+    for (let i = nDigits - 1; i >= 0; i--) {
+        let d = cardNumber.charAt(i);
+        if (isSecond) {
+            d = (parseInt(d) * 2).toString();
+            if (d.length > 1) {
+                d = (parseInt(d.charAt(0)) + parseInt(d.charAt(1))).toString();
+            }
+        }
+        sum += parseInt(d);
+        isSecond = !isSecond;
+    }
+    return sum % 10 === 0;
+};
+
+// Helper Function used to validate a Cards Expiration Date (Credit Card, Stripe)
+// Caller (/payment)
+// RETURN (true or false)
+// PARAMS (expirationDate)
+const validateExpirationDate = (expirationDate) => {
+    const [month, year] = expirationDate.split("/").map((item) => parseInt(item, 10));
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear() % 100; // Get last two digits of the year
+
+    // Check if the card is expired
+    return (
+        year > currentYear || (year === currentYear && month >= currentMonth)
+    );
+};
+
+// Helper Function used to get Payment name for sending Payment Email
+// Caller (/payment)
+// RETURN (Payment Name)
+// PARAMS (paymentMethod)
+const getPaymentMethodName = (paymentMethod) => {
+    switch (paymentMethod) {
+        case 1:
+            return "Credit Card";
+        case 2:
+            return "PayPal";
+        case 3:
+            return "Stripe";
+        case 4:
+            return "ApplePay";
+        default:
+            return "Unknown";
+    }
+};
+
+
+
+
+/*
+    TYPE : HELPER FUNCTIONS
+    API Endpoints that are used for User Functionality
+    Register, Login, Verify Email, Otp, Change Password, Forgot Password, Logout
+*/
+
+
+
+// Helper Function used to send Confirmation Email
+// Caller (/)
+// RETURN (none)
+// PARAMS (email, fullname, confirmationlink)
+const sendConfirmationEmail = async (email, fullname, confirmationlink) => {
+    try {
+        const htmlMessage = getConfirmHtmlTemplate(fullname, confirmationlink);
+
+        const { data, error } = await resend.emails.send({
+            from: "APDS Verify Email <noreplyverify@apdscustomerportal.online>",
+            to: [email],
+            subject: "Confirm your email",
+            html: htmlMessage,
+        });
+
+        if (error) {
+            console.error(`Failed to send email: ${error.message}`);
+        } else {
+            console.log('Email sent:', data);
+        }
+
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+};
+
+// Helper Function used to send Account Number Email
+// Caller (/)
+// RETURN (none)
+// PARAMS (email, fullname, accountNumber)
+const sendAccountEmail = async (email, fullname, accountNumber) => {
+    try {
+        const htmlMessage = getAccountHtmlTemplate(fullname, accountNumber);
+
+        const { data, error } = await resend.emails.send({
+            from: "APDS Verify Email <noreplyverify@apdscustomerportal.online>",
+            to: [email],
+            subject: "Account Number",
+            html: htmlMessage,
+        });
+
+        if (error) {
+            console.error(`Failed to send email: ${error.message}`);
+        } else {
+            console.log('Email sent:', data);
+        }
+
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+};
+
+// Helper Function used to send OTP Email
+// Caller (/)
+// RETURN (none)
+// PARAMS (email, fullname, otp)
+const sendOtpEmail = async (email, fullname, otp) => {
+    try {
+        const htmlMessage = getOtpHtmlTemplate(fullname, otp);
+
+        const { data, error } = await resend.emails.send({
+            from: "APDS Verify Email <noreplyverify@apdscustomerportal.online>",
+            to: [email],
+            subject: "OTP",
+            html: htmlMessage,
+        });
+
+        if (error) {
+            console.error(`Failed to send email: ${error.message}`);
+        } else {
+            console.log('Email sent:', data);
+        }
+
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+};
+
+// Helper Function used to send Payment Email
+// Caller (/)
+// RETURN (none)
+// PARAMS (fullname, email, amount, paymentMethod)
+const sendPaymentEmail = async (fullname, email, amount, paymentMethod) => {
+    try {
+
+        const htmlMessage = getPaymentHtmlTemplate(fullname, amount, paymentMethod)
+
+        const { data, error } = await resend.emails.send({
+            from: "APDS Payment Confirmation <noreplypayment@apdscustomerportal.online>",
+            to: [email],
+            subject: "Payment Sucessful!",
+            html: htmlMessage,
+        });
+
+        if (error) {
+            console.error(`Failed to send email: ${error.message}`);
+        } else {
+            console.log('Email sent:', data);
+        }
+
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+};
+
+// Helper Function used to send Generated Password
+// Caller (/)
+// RETURN (none)
+// PARAMS (email, fullname, password)
+const sendPasswordEmail = async (email, fullname, password) => {
+    try {
+        const htmlMessage = getPasswordHtmlTemplate(fullname, password);
+
+        const { data, error } = await resend.emails.send({
+            from: "APDS Customer Portal <passwordreset@apdscustomerportal.online>",
+            to: [email],
+            subject: "Password Reset",
+            html: htmlMessage,
+        });
+
+        if (error) {
+            console.error(`Failed to send email: ${error.message}`);
+        } else {
+            console.log('Email sent:', data);
+        }
+
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+};
+
+// Helper Function used to send Contact Email from AI
+// Caller (/)
+// RETURN (none)
+// PARAMS (email, htmlMessage)
+const sendContactEmail = async (email, htmlMessage) => {
     try {
         const { data, error } = await resend.emails.send({
             from: "APDS Customer Portal <help@apdscustomerportal.online>",
@@ -748,6 +1120,84 @@ const sendEmail = async (email, htmlMessage) => {
         console.error('Error sending email:', error);
     }
 };
+
+
+// Helper Function used to get HTML tempalte for Confirm Email
+// Caller (sendConfirmationEmail())
+// RETURN (html)
+// PARAMS (fullname, confirmationLink)
+const getConfirmHtmlTemplate = (fullname, confirmationLink) => {
+    const filePath = path.join(__dirname, 'confirmemail.html'); // adjust path as necessary
+    let html = fs.readFileSync(filePath, 'utf-8'); // read HTML file
+
+    // Replace placeholders with dynamic values
+    html = html.replace('{{fullname}}', fullname);
+    html = html.replace('{{confirmationLink}}', confirmationLink);
+
+    return html;
+};
+
+// Helper Function used to get HTML tempalte for Account Number Email
+// Caller (sendAccountEmail())
+// RETURN (html)
+// PARAMS (fullname, accountNumber)
+const getAccountHtmlTemplate = (fullname, accountNumber) => {
+    const filePath = path.join(__dirname, 'accountemail.html'); // adjust path as necessary
+    let html = fs.readFileSync(filePath, 'utf-8'); // read HTML file
+
+    // Replace placeholders with dynamic values
+    html = html.replace('{{fullname}}', fullname);
+    html = html.replace('{{accountNumber}}', accountNumber);
+
+    return html;
+};
+
+// Helper Function used to get HTML tempalte for Account Number Email
+// Caller (sendOtpEmail())
+// RETURN (html)
+// PARAMS (fullname, otp)
+const getOtpHtmlTemplate = (fullname, otp) => {
+    const filePath = path.join(__dirname, 'otpemail.html'); // adjust path as necessary
+    let html = fs.readFileSync(filePath, 'utf-8'); // read HTML file
+
+    // Replace placeholders with dynamic values
+    html = html.replace('{{fullname}}', fullname);
+    html = html.replace('{{otp}}', otp);
+
+    return html;
+};
+
+// Helper Function used to get HTML tempalte for Account Number Email
+// Caller (sendOtpEmail())
+// RETURN (html)
+// PARAMS (fullname, otp)
+const getPasswordHtmlTemplate = (fullname, password) => {
+    const filePath = path.join(__dirname, 'passwordemail.html'); // adjust path as necessary
+    let html = fs.readFileSync(filePath, 'utf-8'); // read HTML file
+
+    // Replace placeholders with dynamic values
+    html = html.replace('{{fullname}}', fullname);
+    html = html.replace('{{password}}', password);
+
+    return html;
+};
+
+// Helper Function used to get HTML tempalte for Payment Email
+// Caller (sendPaymentEmail())
+// RETURN (html)
+// PARAMS (fullname, amount, paymentMethod)
+const getPaymentHtmlTemplate = (fullname, amount, paymentMethod) => {
+    const filePath = path.join(__dirname, 'paymentemail.html'); // adjust path as necessary
+    let html = fs.readFileSync(filePath, 'utf-8'); // read HTML file
+
+    // Replace placeholders with dynamic values
+    html = html.replace('{{fullname}}', fullname);
+    html = html.replace('{{paymentMethod}}', paymentMethod);
+    html = html.replace('{{amount}}', amount);
+
+    return html;
+};
+
 
 app.use('/api/', router)
 export const handler = ServerlessHttp(app);

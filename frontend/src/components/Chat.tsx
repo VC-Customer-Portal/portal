@@ -1,80 +1,168 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'
 import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button"; // Assuming you have a Button component from Shadcn UI
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Send, Bot, User } from "lucide-react"
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
+type Message = {
+    sender: string;
+    text: string;
+  }
+
+// Save messages to sessionStorage
+const saveMessagesToSession = (messages: Message[]) => {
+  sessionStorage.setItem("chatMessages", JSON.stringify(messages))
+}
+
+// Load messages from sessionStorage
+const loadMessagesFromSession = () => {
+  const storedMessages = sessionStorage.getItem("chatMessages")
+  return storedMessages ? JSON.parse(storedMessages) : []
+}
 
 async function fetchAIResponse(message: string): Promise<string> {
-    const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI as string);
-    const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: "You are a Virtual Assist. You will help users with dificulties and navigating the Customer Portal. For now the only function is Editing the logged in users details."
-    });
+  const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI as string)
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: `You are a Virtual Assistant for a Customer Payment Portal. Your primary role is to help users navigate the website and assist them with various tasks, such as editing their profile, making payments, viewing payment data, and submitting queries for support. All your responses should be in plain text. Do not use any Markdown formatting.
 
-    try {
-        const result = await model.generateContent(message);
-        const responseText = await result.response.text();
-        return responseText;
-    } catch (error) {
-        console.error("Error generating content:", error);
-        return "Sorry, something went wrong. Please try again.";
-    }
+    The only time that you should use html is when providing the href for the link the user can go to.
+
+    Key Features and Capabilities of the Website:
+
+        Profile Editing:
+            Users can edit their profile information, such as name, email, and contact details.
+            When asked, provide a direct link to the profile page: Profile: https://apdscustomerportal.online/edit
+
+        Making a Payment:
+            The website allows users to make payments securely using four available payment methods: Credit Card, Stripe, Apple Pay, PayPal.
+            Provide the payment page link: Payment: https://apdscustomerportal.online/payment
+
+        Viewing Payments:
+            Users can view their previous payments through charts and tables. Provide the link: View Payment: http://localhost:5173/mypayments
+
+        Submitting a Query:
+            Provide the contact form link: Contact Form: https://apdscustomerportal.online/dashboard#contact
+    `,
+  })
+
+  try {
+    const result = await model.generateContent(message)
+    const responseText = await result.response.text()
+    return responseText
+  } catch (error) {
+    console.error("Error generating content:", error)
+    return "Sorry, something went wrong. Please try again."
+  }
 }
 
-const Chat: React.FC = () => {
-    const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
-    const [inputMessage, setInputMessage] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
-
-    const handleSendMessage = async () => {
-        if (inputMessage.trim() === "") return;
-
-        // Add user message to the chat
-        const newMessages = [...messages, { sender: 'user', text: inputMessage }];
-        setMessages(newMessages);
-        setInputMessage(""); // Clear input
-
-        setIsLoading(true); // Show loading while waiting for AI response
-        const aiResponse = await fetchAIResponse(inputMessage);
-        setIsLoading(false);
-
-        // Add AI response to the chat
-        setMessages([...newMessages, { sender: 'ai', text: aiResponse }]);
-    };
-
-    return (
-        <Accordion type="single" collapsible className='bg-slate-100 px-2'>
-            <AccordionItem value="chat">
-                <AccordionTrigger>Virtual Assistant</AccordionTrigger>
-                <AccordionContent>
-                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                        {messages.map((msg, index) => (
-                            <div key={index} className={`message ${msg.sender}`}>
-                                <strong>{msg.sender === 'user' ? 'You: ' : 'AI: '}</strong>
-                                {msg.text}
-                            </div>
-                        ))}
-                    </div>
-                    <div style={{ marginTop: '10px' }}>
-                        <Textarea
-                            value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
-                            placeholder="Type your message..."
-                            disabled={isLoading}
-                        />
-                        <Button onClick={handleSendMessage} disabled={isLoading || inputMessage.trim() === ""}>
-                            {isLoading ? "Loading..." : "Send"}
-                        </Button>
-                    </div>
-                </AccordionContent>
-            </AccordionItem>
-        </Accordion>
-    );
+// Utility function to turn URLs into clickable links
+function linkify(text: string) {
+  const urlPattern = /(https?:\/\/[^\s]+)/g
+  return text.replace(urlPattern, (url) => 
+    `<a href="${url}" style="color: blue; text-decoration: underline;">${url}</a>`
+  )
 }
 
-export default Chat;
+export default function Chat() {
+  const [messages, setMessages] = useState<{ sender: string; text: string }[]>(loadMessagesFromSession())
+  const [inputMessage, setInputMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Effect to load messages from session storage on initial render
+  useEffect(() => {
+    const storedMessages = loadMessagesFromSession()
+    setMessages(storedMessages)
+  }, [])
+
+  // Update sessionStorage whenever messages state changes
+  useEffect(() => {
+    saveMessagesToSession(messages)
+  }, [messages])
+
+  const handleSendMessage = async () => {
+    if (inputMessage.trim() === "") return
+
+    const newMessages = [...messages, { sender: 'user', text: inputMessage }]
+    setMessages(newMessages)
+    setInputMessage("")
+
+    setIsLoading(true)
+    const aiResponse = await fetchAIResponse(inputMessage)
+    setIsLoading(false)
+
+    setMessages([...newMessages, { sender: 'ai', text: aiResponse }])
+  }
+
+  return (
+    <Accordion type="single" collapsible className="w-full max-w-md mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+      <AccordionItem value="chat" className="border-b">
+        <AccordionTrigger className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90">
+          <span className="flex items-center">
+            <Bot className="w-5 h-5 mr-2" />
+            Virtual Assistant
+          </span>
+        </AccordionTrigger>
+        <AccordionContent>
+          <div className="p-4">
+            <div className="h-64 overflow-y-auto mb-4 space-y-4">
+              {messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`flex ${
+                    msg.sender === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-[80%] p-3 rounded-lg ${
+                      msg.sender === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground'
+                    }`}
+                  >
+                    <div className="flex items-center mb-1">
+                      {msg.sender === 'user' ? (
+                        <User className="w-4 h-4 mr-2" />
+                      ) : (
+                        <Bot className="w-4 h-4 mr-2" />
+                      )}
+                      <span className="font-semibold">
+                        {msg.sender === 'user' ? 'You' : 'AI'}
+                      </span>
+                    </div>
+                    {/* Render text with clickable links */}
+                    <p dangerouslySetInnerHTML={{ __html: linkify(msg.text) }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex space-x-2">
+              <Textarea
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Type your message..."
+                disabled={isLoading}
+                className="flex-grow"
+                rows={1}
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={isLoading || inputMessage.trim() === ""}
+                className="px-3"
+              >
+                <Send className="w-4 h-4" />
+                <span className="sr-only">Send</span>
+              </Button>
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  )
+}

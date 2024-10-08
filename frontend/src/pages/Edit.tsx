@@ -14,21 +14,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import React, { useEffect, useState } from 'react';
 import { Pencil2Icon, ExclamationTriangleIcon, EyeClosedIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { Skeleton } from "@/components/ui/skeleton";
+import User from "@/models/User";
+import { AtSign, Hash, Lock, UserPen } from "lucide-react";
 
+// Props Used to send message to be displayed in Notification Panel
 interface EditProps {
     onEdit: (message: string, time: string) => void;
 }
 
-interface User {
-    fullname: string;
-    email: string;
-    account_number: string;
-}
-
 const Edit: React.FC<EditProps> = ({ onEdit }) => {
+    // variables to hold states for values
     const sessionToken = sessionStorage.getItem('sessionToken');
     const [user, setUser] = useState<User | null>(null);
-    const [originalUser, setOriginalUser] = useState<User | null>(null); // New state for original user
+    const [originalUser, setOriginalUser] = useState<User | null>(null);
     const [fullname, setFullname] = useState('');
     const [email, setEmail] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
@@ -40,6 +38,16 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
     const [isError, setIsError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Values for Password requirement
+    /*
+        1 Uppercase
+        1 Lowercase
+        1 Number
+        1 Special Character
+        is atleast 8 characters long
+
+        IsPasswordValid uses the requirements to return a bool
+    */
     const passwordRequirements = {
         hasUpperCase: /[A-Z]/.test(changedPassword),
         hasLowerCase: /[a-z]/.test(changedPassword),
@@ -47,52 +55,10 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
         hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(changedPassword),
         isValidLength: changedPassword.length >= 8,
     };
-
     const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
 
-    useEffect(() => {
-        const fetchPayments = async () => {
-            try {
-                const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/userdetails`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ token: sessionToken })
-                });
-                const data = await response.json();
 
-                if (response.ok) {
-                    setUser(data.user);
-                    setOriginalUser(data.user); // Set original user data
-                } else {
-                    console.error(data.message);
-                }
-            } catch (error) {
-                console.error("Error fetching payments:", error);
-            }
-        };
-
-        fetchPayments();
-    }, [sessionToken]);
-
-    useEffect(() => {
-        if (user) {
-            setFullname(user.fullname);
-            setEmail(user.email);
-            setAccountNumber(user.account_number);
-        }
-    }, [user]);
-
-    useEffect(() => {
-        if (message) {
-            const timer = setTimeout(() => {
-                setMessage(null);
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [message]);
-
+    // Function used to submit the Users Update to Edit
     const handleUserSaveChanges = async () => {
         const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/edituser`, {
             method: 'POST',
@@ -113,67 +79,119 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
         }
     };
 
+    // Function used to submit the Users Update to their password
     const handlePasswordSaveChanges = async () => {
 
-        try{
-        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/changepassword`, {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/changepassword`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token: sessionToken, password: currentPassword, newpassword: changedPassword }),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                setMessage('Changed Password successfully!');
+                setIsError(false);
+                setIsLoading(true);
+                handleLogout();
+                setTimeout(() => {
+                    onEdit('Changed User Password!', Date().toLocaleString());
+                    setIsLoading(false);
+                    window.location.replace('/login');
+                }, 5000);
+            } else {
+                setMessage(result.message);
+                setIsError(true);
+            }
+        } catch (error) {
+            setIsError(true)
+            setMessage("Error Sending Contact payment.");
+        }
+    };
+
+    // Function used to Logout after the user changes their password
+    const handleLogout = async () => {
+        const sessionToken = sessionStorage.getItem('sessionToken')
+        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/logout`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ token: sessionToken, password: currentPassword, newpassword: changedPassword }),
+            body: JSON.stringify({ sessionToken }),
         });
 
-        const result = await response.json();
-        if (response.ok) {
-            setMessage('Changed Password successfully!');
-            setIsError(false);
-            setIsLoading(true);
-            handleLogout();
-            setTimeout(() => {
-                onEdit('Changed User Password!', Date().toLocaleString());
-                setIsLoading(false);
-                window.location.replace('/login');
-            }, 5000);
-        } else {
-            setMessage(result.message);
-            setIsError(true);
-        }
-    } catch (error) {
-        setIsError(true)
-        setMessage("Error Sending Contact payment.");
-    }
-    };
-
-    const handleLogout = async () => {
-        const sessionToken = sessionStorage.getItem('sessionToken')
-        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/logout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ sessionToken }),
-        });
-    
         await response.json();
         if (response.ok) {
-          sessionStorage.removeItem('isAuthenticated');
-          sessionStorage.removeItem('notifications');
-          sessionStorage.removeItem('sessionToken');
-          sessionStorage.removeItem('otpComplete');
+            sessionStorage.removeItem('isAuthenticated');
+            sessionStorage.removeItem('notifications');
+            sessionStorage.removeItem('sessionToken');
+            sessionStorage.removeItem('otpComplete');
         } else {
         }
-    
-    
-      };
 
-    // Check if changes have been made
+
+    };
+
+    // Function used to check if the User has made Updates to Edit if not cant submit
     const hasChanges = () => {
         return (
             originalUser &&
             (fullname !== originalUser.fullname || email !== originalUser.email)
         );
     };
+
+    /*
+        UseEffects used to:
+        - Fetch the user details
+        - Set the Fullname and Email and Account Number in Edit Form
+        - Display Messages Recieved
+    */
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/userdetails`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ token: sessionToken })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    setUser(data.user);
+                    setOriginalUser(data.user);
+                } else {
+                    console.error(data.message);
+                }
+            } catch (error) {
+                console.error("Error fetching payments:", error);
+            }
+        };
+
+        fetchUser();
+    }, [sessionToken]);
+
+    useEffect(() => {
+        if (user) {
+            setFullname(user.fullname);
+            setEmail(user.email);
+            setAccountNumber(user.account_number);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (message) {
+            const timer = setTimeout(() => {
+                setMessage(null);
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [message]);
+
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen">
@@ -221,31 +239,58 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
                             <CardContent className="space-y-2">
                                 <div className="space-y-1">
                                     <Label htmlFor="name">Account Number:</Label>
-                                    <Input
-                                        id="name"
-                                        value={accountNumber}
-                                        disabled={true}
-                                    />
+                                    <div className="relative">
+                                        <Hash className="absolute left-2 top-1/2 transform -translate-y-1/2" />
+                                        <Input
+                                            id="name"
+                                            value={accountNumber}
+                                            disabled={true}
+                                            className="pl-10 pr-10"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor="fullname">Full Name:</Label>
-                                    <Input
-                                        id="fullname"
-                                        value={fullname}
-                                        onChange={(e) => setFullname(e.target.value)}
-                                    />
+                                    <div className="relative">
+                                        <UserPen className="absolute left-2 top-1/2 transform -translate-y-1/2" />
+                                        <Input
+                                            id="fullname"
+                                            value={fullname}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                const regex = /^[A-Za-z\s]*$/;
+                                                if (regex.test(value)) {
+                                                    setFullname(value);
+                                                }
+                                            }}
+                                            className="pl-10 pr-10"
+                                        />
+
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor="email">Email:</Label>
-                                    <Input
-                                        id="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                    />
+                                    <div className='relative'>
+                                        <AtSign className="absolute left-2 top-1/2 transform -translate-y-1/2" />
+                                        <Input
+                                            id="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="pl-10 pr-10"
+                                            onBlur={() => {
+                                                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                                if (!emailRegex.test(email)) {
+                                                    setEmail('');
+                                                    setIsError(true);
+                                                    setMessage('Please Enter Valid Email Address');
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             </CardContent>
                             <CardFooter>
-                                <Button onClick={handleUserSaveChanges} disabled={!hasChanges()}>
+                                <Button onClick={handleUserSaveChanges} disabled={!hasChanges()} className="w-full">
                                     Save changes
                                 </Button>
                             </CardFooter>
@@ -263,6 +308,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
                                 <div className="flex flex-col space-y-1.5 relative">
                                     <Label htmlFor="password">Current Password</Label>
                                     <div className="relative">
+                                        <Lock className="absolute left-2 top-1/2 transform -translate-y-1/2" />
                                         <Input
                                             id="password"
                                             type={showPassword ? "text" : "password"}
@@ -270,7 +316,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
                                             value={currentPassword}
                                             onChange={(e) => setCurrentPassword(e.target.value)}
                                             required
-                                            className="pr-10"
+                                            className="pr-10 pl-10"
                                         />
                                         <button
                                             type="button"
@@ -284,6 +330,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
                                 <div className="flex flex-col space-y-1.5 relative">
                                     <Label htmlFor="confirmPassword">New Password</Label>
                                     <div className="relative">
+                                        <Lock className="absolute left-2 top-1/2 transform -translate-y-1/2" />
                                         <Input
                                             id="confirmPassword"
                                             type={showConfirmPassword ? "text" : "password"}
@@ -291,7 +338,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
                                             value={changedPassword}
                                             onChange={(e) => setChangedPassword(e.target.value)}
                                             required
-                                            className="pr-10"
+                                            className="pr-10 pl-10"
                                         />
                                         <button
                                             type="button"
@@ -324,7 +371,7 @@ const Edit: React.FC<EditProps> = ({ onEdit }) => {
                                 </div>
                             </CardContent>
                             <CardFooter>
-                                <Button onClick={handlePasswordSaveChanges}>Save password</Button>
+                                <Button onClick={handlePasswordSaveChanges} className="w-full">Save password</Button>
                             </CardFooter>
                         </Card>
                     </TabsContent>

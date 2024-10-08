@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { useMediaQuery } from 'react-responsive';
 import './App.css';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -10,24 +11,34 @@ import Edit from './pages/Edit';
 import Otp from './pages/Otp';
 import UserPayments from './pages/UserPayments';
 import Payment from './pages/Payment';
+import ForgotPassword from './pages/ForgotPassword';
+import MobileNavbar from './components/MobileNavbar';
+import Footer from './components/Footer';
 
 function App() {
+  // Variables to hold states for values
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('isAuthenticated') === 'true';
   });
-
   const [otpComplete, setOtpComplete] = useState<boolean>(() => {
     return sessionStorage.getItem('otpComplete') === 'true';
   });
-
   const [notifications, setNotifications] = useState<{ message: string; timestamp: string }[]>(() => {
     const storedNotifications = sessionStorage.getItem('notifications');
     return storedNotifications ? JSON.parse(storedNotifications) : [];
   });
-
   const [screenWidth, setScreenWidth] = useState<number>(window.innerWidth);
   const [cloudinaryImageUrl, setCloudinaryImageUrl] = useState<string>("");
+  const isDesktop = useMediaQuery({ query: '(min-width: 768px)' });
 
+
+  /*
+    Methods used when user triggers:
+      OnLogin
+      OnRegister
+      OnPayment
+      OnEdit
+  */
   const handleRegister = (message: string) => {
     const timestamp = new Date().toLocaleString();
     setNotifications((prev) => {
@@ -66,6 +77,7 @@ function App() {
     });
   };
 
+  // Function used to Logout after the user clicks Logout
   const handleLogout = async () => {
     const sessionToken = sessionStorage.getItem('sessionToken')
     const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/logout`, {
@@ -79,46 +91,51 @@ function App() {
     await response.json();
     if (response.ok) {
       setIsAuthenticated(false);
+      setOtpComplete(false)
       sessionStorage.removeItem('isAuthenticated');
       setNotifications([]);
       sessionStorage.removeItem('notifications');
       sessionStorage.removeItem('sessionToken');
       sessionStorage.removeItem('otpComplete');
+      sessionStorage.removeItem('chatMessages');
     } else {
     }
 
 
   };
 
-  useEffect(() => {
-    sessionStorage.setItem('isAuthenticated', String(isAuthenticated));
-  }, [isAuthenticated]);
+
+
+  /*
+    UseEffects used to:
+    - Set isAuthenticated
+    - Update notifications
+    - Update Screen Size
+    - Get background from CDN with device Width
+  */
 
   useEffect(() => {
     sessionStorage.setItem('notifications', JSON.stringify(notifications));
   }, [notifications]);
 
-  // Handle screen resize and set Cloudinary URL
   useEffect(() => {
     const updateScreenWidth = () => {
       setScreenWidth(window.innerWidth);
     };
 
     window.addEventListener('resize', updateScreenWidth);
-    updateScreenWidth(); // Set the initial width
+    updateScreenWidth();
 
-    // Cleanup the event listener
     return () => window.removeEventListener('resize', updateScreenWidth);
   }, []);
 
   useEffect(() => {
-    // Update Cloudinary URL based on screen width
     setCloudinaryImageUrl(`https://res.cloudinary.com/dbvvqq2p7/image/upload/w_${screenWidth}/q_auto:best/f_auto/backgroud_cloud_desktop_ybebmh.png`);
   }, [screenWidth]);
+
   return (
     <Router>
       <div style={{ position: 'relative', minHeight: '100vh', width: '100vw', overflow: 'hidden' }}>
-        {/* Image element with object-fit: fill */}
         <img
           src={cloudinaryImageUrl}
           alt="Background"
@@ -129,15 +146,22 @@ function App() {
             width: '100%',
             height: '100%',
             objectFit: 'fill',
-            zIndex: -1, // Ensures image is behind content
+            zIndex: -1,
           }}
         />
-        <Navbar
-          isAuthenticated={isAuthenticated}
-          onLogout={handleLogout}
-          notifications={notifications}
-          setNotifications={setNotifications}
-        />
+        {isDesktop ? (
+                <Navbar
+                    isAuthenticated={otpComplete}
+                    onLogout={handleLogout}
+                    notifications={notifications}
+                    setNotifications={setNotifications}
+                />
+            ) : (
+                <MobileNavbar
+                    isAuthenticated={otpComplete}
+                    onLogout={handleLogout}
+                />
+            )}
         <div className="App">
           <Routes>
             <Route
@@ -147,6 +171,10 @@ function App() {
             <Route
               path="/login"
               element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />}
+            />
+            <Route
+              path="/forgotpassword"
+              element={!isAuthenticated ? <ForgotPassword /> : <Navigate to="/dashboard" />}
             />
             <Route
               path="/otp"
@@ -178,6 +206,7 @@ function App() {
             />
           </Routes>
         </div>
+        <Footer />
         <div style={chatContainerStyle}>
           <Chat />
         </div>

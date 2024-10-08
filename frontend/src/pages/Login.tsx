@@ -13,8 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RocketIcon, ExclamationTriangleIcon, EyeClosedIcon, EyeOpenIcon } from "@radix-ui/react-icons";
+import { Hash, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 const Login: React.FC = () => {
+  // variables to hold states for values
+  const [capVal, setCapVal] = useState<string | null>(null)
   const [accountNumber, setAccountNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,23 +27,24 @@ const Login: React.FC = () => {
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Function used to login the User
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
     const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ accountNumber, password }),
+      body: JSON.stringify({ accountNumber, password, capVal }),
     });
-
+    
     const data = await response.json();
     if (response.ok) {
       sessionStorage.setItem('sessionToken', data.sessionToken);
       setMessage('OTP sent! Please check your email to continue.');
       setIsError(false);
       sessionStorage.setItem('isAuthenticated', 'true');
-      setIsLoading(true);
       setTimeout(() => {
         window.location.replace('/otp');
         setIsLoading(false);
@@ -46,9 +52,11 @@ const Login: React.FC = () => {
     } else {
       setMessage(data.message || 'Login failed. Please check your credentials.');
       setIsError(true);
+      setIsLoading(false);
     }
   };
 
+  // Use Effect to Set Messages
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => {
@@ -94,25 +102,31 @@ const Login: React.FC = () => {
           <CardContent>
             <form onSubmit={handleLogin}>
               <div className="grid w-full items-center gap-4">
-                <div className="flex flex-col space-y-1.5">
+                <div className="flex flex-col space-y-1.5 relative">
                   <Label htmlFor="accountNumber">Account Number</Label>
-                  <Input
-                    id="accountNumber"
-                    type="text"
-                    placeholder="Account Number"
-                    value={accountNumber}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (/^\d*$/.test(value) && value.length <= 8) {
-                        setAccountNumber(value);
-                      }
-                    }}
-                    required
-                  />
+                  <div className="relative">
+                    <Hash className="absolute left-2 top-1/2 transform -translate-y-1/2" />
+                    <Input
+                      id="accountNumber"
+                      type="text"
+                      placeholder="Account Number"
+                      value={accountNumber}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (/^\d*$/.test(value) && value.length <= 8) {
+                          setAccountNumber(value);
+                        }
+                      }}
+                      required
+                      className="pl-10 pr-10"
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
                 <div className="flex flex-col space-y-1.5 relative">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
+                    <Lock className="absolute left-2 top-1/2 transform -translate-y-1/2" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -120,7 +134,8 @@ const Login: React.FC = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="pr-10"
+                      className="pl-10 pr-10"
+                      disabled={isLoading}
                     />
                     <button
                       type="button"
@@ -132,9 +147,19 @@ const Login: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <CardFooter className="flex justify-center mt-4">
-                <Button className='bg-green-600 hover:bg-green-950' type="submit">Submit</Button>
+              <CardFooter className="flex flex-col items-center justify-center mt-4 space-y-3">
+                <Link to="/forgotpassword" className="text-blue-700 hover:underline">
+                  Forgot Password?
+                </Link>
+                <ReCAPTCHA
+                  sitekey={import.meta.env.VITE_SITE_KEY}
+                  onChange={(val) => setCapVal(val)}
+                />
+                <Button className="bg-green-600 hover:bg-green-950 w-full" type="submit" disabled={!capVal || isLoading}>
+                  Submit
+                </Button>
               </CardFooter>
+
             </form>
           </CardContent>
         </Card>

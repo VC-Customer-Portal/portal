@@ -13,55 +13,63 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RocketIcon, ExclamationTriangleIcon } from "@radix-ui/react-icons";
-import { LockOpen } from 'lucide-react';
+import { Hash } from 'lucide-react';
 
-// Props Used to send message to be displayed in Notification Panel
-interface OtpProps {
-    onLogin: (message: string, time: string) => void;
-}
-
-const Otp: React.FC<OtpProps> = ({ onLogin }) => {
+const ForgotPassword: React.FC = () => {
     // variables to hold states for values
-    const [otp, setOtp] = useState('');
+    const sessionToken = sessionStorage.getItem('sessionToken');
+    const [accountNumber, setAccountNumber] = useState('');
     const [message, setMessage] = useState<string | null>(null);
     const [isError, setIsError] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Function used to login the User using the OTP from email
-    const handleOtp = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-
-        if (otp.length !== 6) {
-            setMessage('Complete OTP');
-            setIsError(true);
-            return;
-        }
-
-        const sessionToken = sessionStorage.getItem('sessionToken');
-        
-        setIsLoading(true);
-
-        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/verify-otp`, {
+    // Function used to submit the Users account Number to reset password
+    const handleForgot = async () => {
+        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/forgotpassword`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ otp, sessionToken }),
+            body: JSON.stringify({ accountNumber: accountNumber, token: sessionToken }),
         });
 
         const data = await response.json();
         if (response.ok) {
-            setMessage('Redirecting to Dashboard');
+            setMessage('Reset Password Email Sent');
             setIsError(false);
+            setIsLoading(true);
+            handleLogout();
             setTimeout(() => {
-                window.location.replace('/dashboard');
-                onLogin('Successful Login Using OTP', Date().toLocaleString());
                 setIsLoading(false);
+                window.location.replace('/login');
             }, 5000);
         } else {
             setMessage(data.message);
             setIsError(true);
         }
+    };
+
+    // Function used to Logout the User for them to login with new password
+    const handleLogout = async () => {
+        const sessionToken = sessionStorage.getItem('sessionToken')
+        const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/logout`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ sessionToken }),
+        });
+
+        await response.json();
+        if (response.ok) {
+            sessionStorage.removeItem('isAuthenticated');
+            sessionStorage.removeItem('notifications');
+            sessionStorage.removeItem('sessionToken');
+            sessionStorage.removeItem('otpComplete');
+        } else {
+        }
+
+
     };
 
     // Use Effect to Set Messages
@@ -103,31 +111,29 @@ const Otp: React.FC<OtpProps> = ({ onLogin }) => {
             ) : (
                 <Card className="w-[350px] -mt-40">
                     <CardHeader>
-                        <CardTitle>OTP</CardTitle>
-                        <CardDescription>Use OTP sent to email</CardDescription>
+                        <CardTitle>Forgot Password</CardTitle>
+                        <CardDescription>Use your Account Number to Reset Password</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleOtp}>
-                            <div className="grid w-full items-center gap-4">
-                                <div className="flex flex-col space-y-1.5 relative">
-                                    <Label htmlFor="otp">OTP</Label>
-                                    <div className='relative'>
-                                        <LockOpen className="absolute left-2 top-1/2 transform -translate-y-1/2" />
-                                        <Input
-                                            id="otp"
-                                            type="text"
-                                            placeholder="OTP"
-                                            value={otp}
-                                            onChange={(e) => {
-                                                const value = e.target.value;
-                                                if (/^\d*$/.test(value) && value.length <= 6) {
-                                                    setOtp(value);
-                                                }
-                                            }}
-                                            required
-                                            className="pl-10 pr-10"
-                                        />
-                                    </div>
+                        <form onSubmit={handleForgot}>
+                            <div className="flex flex-col space-y-1.5 relative">
+                                <Label htmlFor="accountNumber">Account Number</Label>
+                                <div className="relative">
+                                    <Hash className="absolute left-2 top-1/2 transform -translate-y-1/2" />
+                                    <Input
+                                        id="accountNumber"
+                                        type="text"
+                                        placeholder="Account Number"
+                                        value={accountNumber}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            if (/^\d*$/.test(value) && value.length <= 8) {
+                                                setAccountNumber(value);
+                                            }
+                                        }}
+                                        required
+                                        className="pl-10 pr-10"
+                                    />
                                 </div>
                             </div>
                             <CardFooter className="flex justify-center mt-4">
@@ -141,4 +147,4 @@ const Otp: React.FC<OtpProps> = ({ onLogin }) => {
     );
 }
 
-export default Otp;
+export default ForgotPassword;

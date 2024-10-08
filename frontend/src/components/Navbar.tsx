@@ -6,7 +6,6 @@ import {
 } from "@/components/ui/navigation-menu";
 import { Link } from "react-router-dom";
 import { CSSProperties } from 'react';
-import { BellIcon } from "@radix-ui/react-icons";
 import {
     Sheet,
     SheetContent,
@@ -15,6 +14,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
+import { BellRing, CircleUserRound, LogOut } from "lucide-react";
 
 interface NavbarProps {
     isAuthenticated: boolean;
@@ -39,30 +39,34 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                 <span style={navbarStyles.logoText}>PayView Payment Portal</span>
             </Link>
 
-            <div style={navbarStyles.centerContainer}>
+<div style={navbarStyles.centerContainer}>
                 <NavigationMenu>
                     <NavigationMenuList style={navbarStyles.menuList}>
-                        <NavigationMenuItem>
-                            <NavigationMenuLink asChild>
-                                <Link to="/payment" style={navbarStyles.centerLink}>
-                                    Make Payment
-                                </Link>
-                            </NavigationMenuLink>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                            <NavigationMenuLink asChild>
-                                <Link to="/dashboard" style={navbarStyles.centerLink}>
-                                    Dashboard
-                                </Link>
-                            </NavigationMenuLink>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                            <NavigationMenuLink asChild>
-                                <Link to="/mypayments" style={navbarStyles.centerLink}>
-                                    View Payments
-                                </Link>
-                            </NavigationMenuLink>
-                        </NavigationMenuItem>
+                        {isAuthenticated && (
+                            <>
+                                <NavigationMenuItem>
+                                    <NavigationMenuLink asChild>
+                                        <Link to="/payment" style={navbarStyles.centerLink}>
+                                            Make Payment
+                                        </Link>
+                                    </NavigationMenuLink>
+                                </NavigationMenuItem>
+                                <NavigationMenuItem>
+                                    <NavigationMenuLink asChild>
+                                        <Link to="/dashboard" style={navbarStyles.centerLink}>
+                                            Dashboard
+                                        </Link>
+                                    </NavigationMenuLink>
+                                </NavigationMenuItem>
+                                <NavigationMenuItem>
+                                    <NavigationMenuLink asChild>
+                                        <Link to="/mypayments" style={navbarStyles.centerLink}>
+                                            View Payments
+                                        </Link>
+                                    </NavigationMenuLink>
+                                </NavigationMenuItem>
+                            </>
+                        )}
                     </NavigationMenuList>
                 </NavigationMenu>
             </div>
@@ -72,10 +76,18 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                     <NavigationMenuList style={navbarStyles.menuList}>
                         {isAuthenticated ? (
                             <>
+                                <NavigationMenuItem className="-mr-5 -mb-1">
+                                    <NavigationMenuLink style={navbarStyles.rightLink} asChild>
+                                        <button onClick={onLogout}>
+                                            <LogOut className="text-red-800 font-bold"/>
+                                        </button>
+                                    </NavigationMenuLink>
+                                </NavigationMenuItem>
+
                                 <Sheet>
                                     <SheetTrigger asChild>
                                         <button style={navbarStyles.rightLink}>
-                                            <BellIcon />
+                                            <BellRing className="text-yel"/>
                                         </button>
                                     </SheetTrigger>
                                     <SheetContent side={"right"}>
@@ -108,15 +120,9 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                                 </Sheet>
 
                                 <NavigationMenuItem>
-                                    <NavigationMenuLink style={navbarStyles.rightLink} asChild>
-                                        <button onClick={onLogout}>Logout</button>
-                                    </NavigationMenuLink>
-                                </NavigationMenuItem>
-
-                                <NavigationMenuItem>
                                     <NavigationMenuLink asChild>
                                         <Link to="/edit" style={navbarStyles.rightLink}>
-                                            Edit Profile
+                                            <CircleUserRound />
                                         </Link>
                                     </NavigationMenuLink>
                                 </NavigationMenuItem>
@@ -184,14 +190,16 @@ const navbarStyles: { [key: string]: CSSProperties } = {
     },
     centerLink: {
         padding: '0 20px',
-        color: "white"
+        color: "white",
+        fontWeight: "bold"
     },
     rightContainer: {
         marginLeft: 'auto',
     },
     rightLink: {
         padding: '0 20px',
-        color: "white"
+        color: "white",
+        fontWeight: "bold"
     },
 };
 

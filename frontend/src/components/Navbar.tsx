@@ -144,6 +144,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                                         </Link>
                                     </NavigationMenuLink>
                                 </NavigationMenuItem>
+
                             </>
                         )}
                     </NavigationMenuList>

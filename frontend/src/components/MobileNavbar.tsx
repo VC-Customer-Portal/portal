@@ -39,6 +39,7 @@ const MobileNavbar: React.FC<MobileNavbarProps> = ({ isAuthenticated, onLogout }
                         <>
                             <Link to="/login" style={mobileNavbarStyles.menuItem}>Login</Link>
                             <Link to="/register" style={mobileNavbarStyles.menuItem}>Register</Link>
+                            
                         </>
                     )}
                 </div>

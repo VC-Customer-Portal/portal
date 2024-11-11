@@ -39,7 +39,7 @@ jobs:
             sonar-scanner -X \
               -Dsonar.projectKey=VC-Customer-Portal_portal \
               -Dsonar.organization=vc-customer-portal \
-              -Dsonar.sources=src \
+              -Dsonar.sources=netlify/functions \
               -Dsonar.host.url=https://sonarcloud.io \
               -Dsonar.login=$SONAR_TOKEN
 

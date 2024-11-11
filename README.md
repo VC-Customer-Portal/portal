@@ -51,7 +51,7 @@ To ensure the security of the PayView Payment Portal, the following measures hav
 
 ## Tutorial
 
-[![Watch the video](https://img.youtube.com/vi/Y2JlzVdDwGg/0.jpg)](https://www.youtube.com/watch?v=Y2JlzVdDwGg)
+[![Watch the video](https://img.youtube.com/vi/7AJ2V1-x7Vc/0.jpg)](https://www.youtube.com/watch?v=7AJ2V1-x7Vc)
 
 ## Prerequisites
 

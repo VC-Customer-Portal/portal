@@ -1,0 +1,53 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: circleci/node:16
+    steps:
+      - checkout  # Check out the code from the repository
+      - run:
+          name: Install dependencies for frontend (React)
+          command: |
+            cd frontend
+            npm install
+      - run:
+          name: Install dependencies for backend (Express.js)
+          command: |
+            cd customer-express
+            npm install
+
+  sonarQubeAnalysis:
+    docker:
+      - image: sonarsource/sonar-scanner-cli:latest  # SonarQube scanner Docker image
+    steps:
+      - checkout
+      - run:
+          name: SonarQube Analysis for Frontend (React)
+          command: |
+            cd frontend
+            sonar-scanner -X \
+              -Dsonar.projectKey=VC-Customer-Portal_portal \
+              -Dsonar.organization=vc-customer-portal \
+              -Dsonar.sources=src \
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.login=$SONAR_TOKEN
+      - run:
+          name: SonarQube Analysis for Backend (Express.js)
+          command: |
+            cd customer-express
+            sonar-scanner -X \
+              -Dsonar.projectKey=VC-Customer-Portal_portal \
+              -Dsonar.organization=vc-customer-portal \
+              -Dsonar.sources=netlify/functions \
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.login=$SONAR_TOKEN
+
+workflows:
+  version: 2
+  build_and_analyze:
+    jobs:
+      - build
+      - sonarQubeAnalysis:
+          requires:
+            - build

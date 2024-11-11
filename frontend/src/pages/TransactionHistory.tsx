@@ -7,7 +7,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { User, ArrowUp } from 'lucide-react';
+import { User } from 'lucide-react';
 
 // Types for transaction data
 interface Transaction {

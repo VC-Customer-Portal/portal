@@ -141,6 +141,11 @@ function App() {
     setCloudinaryImageUrl(`https://res.cloudinary.com/dbvvqq2p7/image/upload/w_${screenWidth}/q_auto:best/f_auto/backgroud_cloud_desktop_ybebmh.png`);
   }, [screenWidth]);
 
+  useEffect(() => {
+    setIsAuthenticated(sessionStorage.getItem('isAuthenticated') === 'true');
+    setIsEmployee(sessionStorage.getItem('isEmployee') === 'true');
+  }, []);  
+
   return (
     <Router>
       <div style={{ position: 'relative', minHeight: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -158,22 +163,35 @@ function App() {
           }}
         />
         {isDesktop ? (
-                <Navbar
-                    isAuthenticated={otpComplete}
-                    isEmployee={isEmployee}
-                    onLogout={handleLogout}
-                    notifications={notifications}
-                    setNotifications={setNotifications}
-                />
-            ) : (
-                <MobileNavbar
-                    isAuthenticated={otpComplete}
-                    isEmployee={isEmployee}
-                    onLogout={handleLogout}
-                />
-            )}
+          <Navbar
+            isAuthenticated={otpComplete}
+            isEmployee={isEmployee}
+            onLogout={handleLogout}
+            notifications={notifications}
+            setNotifications={setNotifications}
+          />
+        ) : (
+          <MobileNavbar
+            isAuthenticated={otpComplete}
+            isEmployee={isEmployee}
+            onLogout={handleLogout}
+          />
+        )}
         <div className="App">
           <Routes>
+
+            <Route
+              path="/employeelogin"
+              element={<EmployeeLogin />}
+            />
+            <Route
+              path="/transactionhistory"
+              element={isAuthenticated && isEmployee ? <TransactionHistory /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="/users"
+              element={isAuthenticated && isEmployee ? <Users /> : <Navigate to="/login" />}
+            />
             <Route
               path="/register"
               element={!isAuthenticated ? <Register onRegister={handleRegister} /> : <Navigate to="/dashboard" />}
@@ -192,11 +210,11 @@ function App() {
             />
             <Route
               path="/dashboard"
-              element={isAuthenticated && otpComplete ? <Dashboard /> : <Navigate to="/login" />}
+              element={isAuthenticated && otpComplete && !isEmployee ? <Dashboard /> : <Navigate to="/login" replace />}
             />
             <Route
               path="/edit"
-              element={isAuthenticated && otpComplete ? <Edit onEdit={handleUserEdit} /> : <Navigate to="/login" />}
+              element={(isAuthenticated && otpComplete) || isEmployee ? <Edit onEdit={handleUserEdit} /> : <Navigate to="/login" />}
             />
             <Route
               path="/payment"
@@ -205,18 +223,6 @@ function App() {
             <Route
               path="/mypayments"
               element={isAuthenticated && otpComplete && !isEmployee ? <UserPayments /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/employeelogin"
-              element= { <EmployeeLogin /> }
-            />
-            <Route
-              path="/transactionhistory"
-              element={isAuthenticated && otpComplete && isEmployee ? <TransactionHistory /> : <Navigate to="/employeelogin" />}
-            />
-            <Route
-              path="/users"
-              element={isAuthenticated && otpComplete && isEmployee ? <Users /> : <Navigate to="/employeelogin" />}
             />
             <Route
               path="*"

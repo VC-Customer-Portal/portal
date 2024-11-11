@@ -68,7 +68,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, isEmployee, onLogout, 
                                 </NavigationMenuItem>
                             </>
                         )}
-                        {isAuthenticated && isEmployee && (
+                        {isEmployee && (
                             <>
                                 <NavigationMenuItem>
                                     <NavigationMenuLink asChild>
@@ -93,7 +93,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, isEmployee, onLogout, 
             <div style={navbarStyles.rightContainer}>
                 <NavigationMenu>
                     <NavigationMenuList style={navbarStyles.menuList}>
-                        {isAuthenticated ? (
+                        {isAuthenticated || isEmployee ? (
                             <>
                                 <NavigationMenuItem className="-mr-5 -mb-1">
                                     <NavigationMenuLink style={navbarStyles.rightLink} asChild>

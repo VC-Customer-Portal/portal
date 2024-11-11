@@ -24,10 +24,12 @@
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.1",
     "fs": "^0.0.1-security",
-    "netlify-cli": "^17.36.3",
     "netlify-lambda": "^2.0.16",
     "resend": "^4.0.0",
     "serverless-http": "^3.2.0",
     "xss-clean": "^0.1.4"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.37.2"
   }
 }

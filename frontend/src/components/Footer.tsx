@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300 mt-40">
@@ -5,7 +7,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">PayView</h3>
-            <p className="text-sm">Secure and simple online payments for everyone.</p>            
+            <p className="text-sm">Secure and simple online payments for everyone.</p>
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">Quick Links</h3>
@@ -23,9 +25,11 @@ export default function Footer() {
             </ul>
           </div>
         </div>
-        <div className="mt-8 pt-8 border-t border-gray-800 text-sm text-center">
-          <p>&copy; {new Date().getFullYear()} PayView Payment Portal. All rights reserved.</p>
-        </div>
+        <Link to="/employeelogin">
+          <div className="mt-8 pt-8 border-t border-gray-800 text-sm text-center cursor-pointer">
+            <p>&copy; {new Date().getFullYear()} PayView Payment Portal. All rights reserved.</p>
+          </div>
+        </Link>
       </div>
     </footer>
   )

@@ -44,9 +44,9 @@ const EmployeeLogin: React.FC = () => {
       sessionStorage.setItem('isAuthenticated', 'true');
       sessionStorage.setItem('isEmployee', 'true');
       setTimeout(() => {
-        window.location.replace('/dashboard');
+        window.location.replace('/transactionhistory');
         setIsLoading(false);
-      }, 3000);
+      }, 5000);
     } else {
       setMessage(data.message || 'Login failed. Please check your credentials.');
       setIsError(true);

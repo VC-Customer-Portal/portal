@@ -24,7 +24,11 @@ const app = express();
 app.set('trust proxy', true);
 
 const corsOptions = {
-    origin: 'https://apdscustomerportal.online',
+    origin: [
+        'https://apdscustomerportal.online',  // your production domain
+        'http://localhost:5173',              // your local development environment
+        'http://127.0.0.1:5173',              // local IP for localhost (if needed)
+      ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
 };
@@ -215,13 +219,17 @@ router.get('/confirm-email', async (req, res) => {
         // Generate a random 8-digit account number
         const accountNumber = generateAccountNumber();
 
+        // Get the current date as a date-only string (YYYY-MM-DD)
+        const registerDate = new Date().toISOString().split('T')[0];
+
         // Update the user's confirmed_email status and set the account number
         const { data: updatedUser, error: updateError } = await supabase
             .from('users')
             .update({
                 confirmed_email: true,
                 confirmation_gen: null,  // Clear confirmation_gen after confirming
-                account_number: accountNumber // Set the generated account number
+                account_number: accountNumber, // Set the generated account number
+                register_date: registerDate  // Set the current date without time
             })
             .eq('id', id);
 
@@ -313,12 +321,16 @@ router.post('/login', async (req, res) => {
         // Create a session token
         const sessionToken = crypto.randomBytes(16).toString('hex');
 
+        // Get the current date and time
+        const loginDate = new Date().toISOString().slice(0, 16);
+
         // Save OTP in the database
         const { error: UpdateError } = await supabase
             .from('users')
             .update({
                 login_otp: otp,
-                session_token: sessionToken
+                session_token: sessionToken,
+                login_date: loginDate
             })
             .eq('id', user.id);
 
@@ -398,7 +410,7 @@ router.post('/employeelogin', async (req, res) => {
 
         // Save session token in the database
         const { error: updateError } = await supabase
-            .from('employees')
+            .from('users')
             .update({
                 session_token: sessionToken
             })
@@ -892,6 +904,117 @@ Guidelines for Responses:
         });
     }
 });
+
+
+// API Endpoint used to fetch users' data
+// GET
+// Request params
+router.get('/users', async (req, res) => {
+    try {
+        // Extract the token from the Authorization header
+        const authHeader = req.headers['authorization'];
+        if (!authHeader) {
+            return res.status(400).json({ message: 'Authorization header is missing' });
+        }
+
+        // Bearer token from the header (format "Bearer <token>")
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            return res.status(400).json({ message: 'Bearer token is missing' });
+        }
+
+        // Verify the token
+        const { data: user, error: authError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('session_token', token)  // Ensure to use the provided token
+            .maybeSingle();
+
+        if (authError) {
+            console.error('Error authenticating token:', authError.message);
+            return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+        }
+
+        // Check if a user was found
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid session token' });
+        }
+
+        // If the user is authenticated, fetch all users from the database (excluding employees)
+        const { data: users, error: selectError } = await supabase
+            .from('users')
+            .select('id, email ,register_date, login_date, fullname')
+            .neq('isEmployee', true);  // Ensure to not pull employees
+
+        if (selectError) {
+            console.error(`Error fetching users: ${selectError.message}`);
+            return res.status(500).json({ message: 'Error fetching users' });
+        }
+
+        // Check if users were found
+        if (!users || users.length === 0) {
+            return res.status(400).json({ message: 'No Users Found' });
+        }
+
+        // Send the list of users back in the response
+        return res.status(200).json({ message: 'Users fetched successfully', users: users });
+
+    } catch (error) {
+        console.error('Unexpected error fetching users:', error);
+        return res.status(500).json({ message: 'An unexpected error occurred', error: error.message });
+    }
+});
+
+
+// API EndPoint used to get all Trasactions
+// GET
+// Request Body (token)
+router.get('/transactions', async (req, res) => {
+    try {
+        // Extract the token from the Authorization header
+        const authHeader = req.headers['authorization'];
+        if (!authHeader) {
+            return res.status(400).json({ message: 'Authorization header is missing' });
+        }
+
+        // Bearer token from the header (format "Bearer <token>")
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            return res.status(400).json({ message: 'Bearer token is missing' });
+        }
+
+        // Verify the token
+        const { data: user, error: authError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('session_token', token)  // Ensure to use the provided token
+            .maybeSingle();
+
+        if (authError) {
+            console.error('Error authenticating token:', authError.message);
+            return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+        }
+
+        // Check if a user was found
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid session token' });
+        }
+
+        const { data: payments, error: paymentsError } = await supabase
+            .from('payments')
+            .select('amount, method_id, id, user_id, created_at')
+
+        if (paymentsError) {
+            return res.status(500).json({ message: 'Error fetching payments', error: paymentsError.message });
+        }
+
+        return res.status(200).json({ message: 'Payments retrieved successfully!', transactions: payments });
+    } catch (error) {
+        console.error('Unexpected error fetching users:', error);
+        return res.status(500).json({ message: 'An unexpected error occurred', error: error.message });
+    }
+});
+
 
 
 

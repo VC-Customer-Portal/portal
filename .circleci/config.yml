@@ -26,7 +26,7 @@ jobs:
           name: SonarQube Analysis for Frontend (React)
           command: |
             cd frontend
-            sonar-scanner \
+            sonar-scanner -X \
               -Dsonar.projectKey=VC-Customer-Portal_portal \
               -Dsonar.sources=src \
               -Dsonar.host.url=https://sonarcloud.io \
@@ -34,8 +34,8 @@ jobs:
       - run:
           name: SonarQube Analysis for Backend (Express.js)
           command: |
-            cd backend
-            sonar-scanner \
+            cd customer-express
+            sonar-scanner -X \
               -Dsonar.projectKey=VC-Customer-Portal_portal \
               -Dsonar.sources=src \
               -Dsonar.host.url=https://sonarcloud.io \

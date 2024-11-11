@@ -13,6 +13,11 @@ Students:
     </a>
 </div>
 
+## Login Test:
+```
+Emplyee ID : 55306855
+Employee Password: Password@1234
+```
 ## Security Measures
 
 To ensure the security of the PayView Payment Portal, the following measures have been implemented against common attacks:
@@ -106,6 +111,7 @@ The frontend receives user input through various forms and components, including
 
 - **Registration Form:** Collects user information for account creation.
 - **Login Form:** Takes user credentials for authentication.
+- **Employee Login:** Login as an Employee
 - **OTP Form:** Accepts the one-time password sent to the user's email.
 - **Edit Profile Form:** Allows users to update their account details.
 - **Payment Form:** Gathers payment information and address details.
@@ -121,6 +127,8 @@ The frontend presents information to the user through several components and pag
 - **Payment Confirmation:** Provides feedback on the payment process, including success or error messages.
 - **Notifications:** Presents alerts and updates related to user actions, like successful registration, profile edits, or payments.
 - **Chat Responses:** Shows replies from the virtual assistant based on user input.
+- **Employee Users Dashboard:** See all users
+- **Employee Transactions:** See all Recent User Transations 
 
 ### Usage
 

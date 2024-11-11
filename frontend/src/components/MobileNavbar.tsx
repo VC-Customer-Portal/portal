@@ -1,14 +1,14 @@
-// MobileNavbar.tsx
 import { Link } from "react-router-dom";
 import { CSSProperties, useState } from 'react';
 import { Menu } from "lucide-react";
 
 interface MobileNavbarProps {
     isAuthenticated: boolean;
+    isEmployee: boolean;
     onLogout: () => void;
 }
 
-const MobileNavbar: React.FC<MobileNavbarProps> = ({ isAuthenticated, onLogout }) => {
+const MobileNavbar: React.FC<MobileNavbarProps> = ({ isAuthenticated, isEmployee, onLogout }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     const toggleMenu = () => setIsOpen((prev) => !prev);
@@ -23,23 +23,30 @@ const MobileNavbar: React.FC<MobileNavbarProps> = ({ isAuthenticated, onLogout }
                 />
                 <span className="ml-3 font-bold text-white text-lg">PayView Payment Portal</span>
             </Link>
-            <button onClick={toggleMenu} style={mobileNavbarStyles.burgerButton}>
+            <button onClick={toggleMenu} style={mobileNavbarStyles.burgerButton} aria-label="Toggle menu">
                 <Menu />
             </button>
             {isOpen && (
-                <div style={mobileNavbarStyles.menu}>
+                <div style={mobileNavbarStyles.menu} role="menu">
                     {isAuthenticated ? (
-                        <>
-                            <Link to="/payment" style={mobileNavbarStyles.menuItem}>Make Payment</Link>
-                            <Link to="/dashboard" style={mobileNavbarStyles.menuItem}>Dashboard</Link>
-                            <Link to="/mypayments" style={mobileNavbarStyles.menuItem}>View Payments</Link>
-                            <button onClick={onLogout} style={mobileNavbarStyles.menuItem}>Logout</button>
-                        </>
+                        isEmployee ? (
+                            <>
+                                <Link to="/transactionhistory" style={mobileNavbarStyles.menuItem} role="menuitem">Transaction History</Link>
+                                <Link to="/users" style={mobileNavbarStyles.menuItem} role="menuitem">Users</Link>
+                                <button onClick={onLogout} style={mobileNavbarStyles.menuItem} role="menuitem">Logout</button>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/payment" style={mobileNavbarStyles.menuItem} role="menuitem">Make Payment</Link>
+                                <Link to="/dashboard" style={mobileNavbarStyles.menuItem} role="menuitem">Dashboard</Link>
+                                <Link to="/mypayments" style={mobileNavbarStyles.menuItem} role="menuitem">View Payments</Link>
+                                <button onClick={onLogout} style={mobileNavbarStyles.menuItem} role="menuitem">Logout</button>
+                            </>
+                        )
                     ) : (
                         <>
-                            <Link to="/login" style={mobileNavbarStyles.menuItem}>Login</Link>
-                            <Link to="/register" style={mobileNavbarStyles.menuItem}>Register</Link>
-                            
+                            <Link to="/login" style={mobileNavbarStyles.menuItem} role="menuitem">Login</Link>
+                            <Link to="/register" style={mobileNavbarStyles.menuItem} role="menuitem">Register</Link>
                         </>
                     )}
                 </div>
@@ -87,6 +94,12 @@ const mobileNavbarStyles: { [key: string]: CSSProperties } = {
         padding: '10px',
         color: '#664ce7',
         textDecoration: 'none',
+        cursor: 'pointer',
+        border: 'none',
+        background: 'none',
+        width: '100%',
+        textAlign: 'left',
+        fontSize: '16px',
     },
 };
 

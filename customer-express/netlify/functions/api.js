@@ -245,7 +245,7 @@ router.get('/confirm-email', async (req, res) => {
 // API EndPoint used for Login for User and 
 // Sending OTP Email
 // POST
-// Request Body (accountNumber, password)
+// Request Body (accountNumber, password, capVal)
 router.post('/login', async (req, res) => {
     const { accountNumber, password, capVal } = req.body;
     const recaptchaUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${reCaptchaKey}&response=${capVal}`;
@@ -337,6 +337,86 @@ router.post('/login', async (req, res) => {
 
     } catch (error) {
         console.error('Unexpected error during login:', error);
+        return res.status(500).json({ message: 'An unexpected error occurred', error: error.message });
+    }
+});
+
+// API Endpoint for Employee Login
+// POST
+// Request Body (employeeID, password, capVal)
+router.post('/employeelogin', async (req, res) => {
+    const { employeeID, password, capVal } = req.body;
+    const recaptchaUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${reCaptchaKey}&response=${capVal}`;
+
+    try {
+        // Verify reCAPTCHA
+        const recaptchaResponse = await new Promise((resolve, reject) => {
+            const req = https.request(recaptchaUrl, { method: 'POST' }, (response) => {
+                let data = '';
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+                response.on('end', () => {
+                    resolve(JSON.parse(data));
+                });
+            });
+            req.on('error', (error) => {
+                reject(error);
+            });
+            req.end();
+        });
+
+        // Check if reCAPTCHA validation was successful
+        if (!recaptchaResponse.success) {
+            return res.status(400).json({ message: 'ReCAPTCHA validation failed' });
+        }
+
+        // Fetch employee based on employeeID
+        const { data: employee, error: selectError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('account_number', employeeID)
+            .maybeSingle();
+
+        if (selectError) {
+            console.error(`Error fetching employee: ${selectError.message}`);
+            return res.status(500).json({ message: 'Error fetching employee' });
+        }
+
+        if (!employee) {
+            return res.status(400).json({ message: 'Employee not found' });
+        }
+
+        // Check hashed password
+        const isPasswordMatch = await bcrypt.compare(password, employee.password);
+        if (!isPasswordMatch) {
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
+
+        // Create a session token
+        const sessionToken = crypto.randomBytes(16).toString('hex');
+
+        // Save session token in the database
+        const { error: updateError } = await supabase
+            .from('employees')
+            .update({
+                session_token: sessionToken
+            })
+            .eq('id', employee.id);
+
+        if (updateError) {
+            console.error(`Error updating session token: ${updateError.message}`);
+            return res.status(500).json({ message: 'Error creating session' });
+        }
+
+        // Respond with session token
+        return res.status(200).json({
+            message: 'Login successful',
+            sessionToken: sessionToken,
+        });
+
+    } catch (error) {
+        console.error('Unexpected error during employee login:', error);
         return res.status(500).json({ message: 'An unexpected error occurred', error: error.message });
     }
 });

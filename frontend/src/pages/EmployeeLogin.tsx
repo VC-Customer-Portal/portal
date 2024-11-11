@@ -28,7 +28,7 @@ const EmployeeLogin: React.FC = () => {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/employee/login`, {
+    const response = await fetch(`${import.meta.env.VITE_EXPRESS_URL}/employeelogin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,12 +38,13 @@ const EmployeeLogin: React.FC = () => {
 
     const data = await response.json();
     if (response.ok) {
-      sessionStorage.setItem('employeeSessionToken', data.sessionToken);
+      sessionStorage.setItem('sessionToken', data.sessionToken);
       setMessage('Login successful! Redirecting...');
       setIsError(false);
       sessionStorage.setItem('isAuthenticated', 'true');
+      sessionStorage.setItem('isEmployee', 'true');
       setTimeout(() => {
-        window.location.replace('/employee/dashboard');
+        window.location.replace('/dashboard');
         setIsLoading(false);
       }, 3000);
     } else {

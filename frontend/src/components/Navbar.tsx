@@ -18,12 +18,13 @@ import { BellRing, CircleUserRound, LogOut } from "lucide-react";
 
 interface NavbarProps {
     isAuthenticated: boolean;
+    isEmployee: boolean;
     onLogout: () => void;
     notifications: { message: string; timestamp: string }[];
     setNotifications: React.Dispatch<React.SetStateAction<{ message: string; timestamp: string }[]>>;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notifications, setNotifications }) => {
+const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, isEmployee, onLogout, notifications, setNotifications }) => {
     const handleRemoveNotification = (index: number) => {
         setNotifications((prev) => prev.filter((_, i) => i !== index));
     };
@@ -39,10 +40,10 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                 <span style={navbarStyles.logoText}>PayView Payment Portal</span>
             </Link>
 
-<div style={navbarStyles.centerContainer}>
+            <div style={navbarStyles.centerContainer}>
                 <NavigationMenu>
                     <NavigationMenuList style={navbarStyles.menuList}>
-                        {isAuthenticated && (
+                        {isAuthenticated && !isEmployee && (
                             <>
                                 <NavigationMenuItem>
                                     <NavigationMenuLink asChild>
@@ -67,6 +68,24 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                                 </NavigationMenuItem>
                             </>
                         )}
+                        {isAuthenticated && isEmployee && (
+                            <>
+                                <NavigationMenuItem>
+                                    <NavigationMenuLink asChild>
+                                        <Link to="/transactionhistory" style={navbarStyles.centerLink}>
+                                            Transaction History
+                                        </Link>
+                                    </NavigationMenuLink>
+                                </NavigationMenuItem>
+                                <NavigationMenuItem>
+                                    <NavigationMenuLink asChild>
+                                        <Link to="/users" style={navbarStyles.centerLink}>
+                                            Users
+                                        </Link>
+                                    </NavigationMenuLink>
+                                </NavigationMenuItem>
+                            </>
+                        )}
                     </NavigationMenuList>
                 </NavigationMenu>
             </div>
@@ -79,7 +98,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                                 <NavigationMenuItem className="-mr-5 -mb-1">
                                     <NavigationMenuLink style={navbarStyles.rightLink} asChild>
                                         <button onClick={onLogout}>
-                                            <LogOut className="text-red-800 font-bold"/>
+                                            <LogOut className="text-red-800 font-bold" />
                                         </button>
                                     </NavigationMenuLink>
                                 </NavigationMenuItem>
@@ -87,7 +106,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                                 <Sheet>
                                     <SheetTrigger asChild>
                                         <button style={navbarStyles.rightLink}>
-                                            <BellRing className="text-yel"/>
+                                            <BellRing className="text-yel" />
                                         </button>
                                     </SheetTrigger>
                                     <SheetContent side={"right"}>
@@ -136,7 +155,6 @@ const Navbar: React.FC<NavbarProps> = ({ isAuthenticated, onLogout, notification
                                         </Link>
                                     </NavigationMenuLink>
                                 </NavigationMenuItem>
-
                                 <NavigationMenuItem>
                                     <NavigationMenuLink asChild>
                                         <Link to="/register" style={navbarStyles.rightLink}>
@@ -232,3 +250,4 @@ const closeButtonStyle: CSSProperties = {
 };
 
 export default Navbar;
+

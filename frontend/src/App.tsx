@@ -8,17 +8,23 @@ import Dashboard from './pages/Dashboard';
 import Navbar from './components/Navbar';
 import Chat from './components/Chat';
 import Edit from './pages/Edit';
+import EmployeeLogin from './pages/EmployeeLogin';
 import Otp from './pages/Otp';
 import UserPayments from './pages/UserPayments';
 import Payment from './pages/Payment';
 import ForgotPassword from './pages/ForgotPassword';
 import MobileNavbar from './components/MobileNavbar';
 import Footer from './components/Footer';
+import TransactionHistory from './pages/TransactionHistory';
+import Users from './pages/Users';
 
 function App() {
   // Variables to hold states for values
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('isAuthenticated') === 'true';
+  });
+  const [isEmployee, setIsEmployee] = useState<boolean>(() => {
+    return sessionStorage.getItem('isEmployee') === 'true';
   });
   const [otpComplete, setOtpComplete] = useState<boolean>(() => {
     return sessionStorage.getItem('otpComplete') === 'true';
@@ -91,8 +97,10 @@ function App() {
     await response.json();
     if (response.ok) {
       setIsAuthenticated(false);
+      setIsEmployee(false);
       setOtpComplete(false)
       sessionStorage.removeItem('isAuthenticated');
+      sessionStorage.removeItem('isEmployee');
       setNotifications([]);
       sessionStorage.removeItem('notifications');
       sessionStorage.removeItem('sessionToken');
@@ -152,6 +160,7 @@ function App() {
         {isDesktop ? (
                 <Navbar
                     isAuthenticated={otpComplete}
+                    isEmployee={isEmployee}
                     onLogout={handleLogout}
                     notifications={notifications}
                     setNotifications={setNotifications}
@@ -159,6 +168,7 @@ function App() {
             ) : (
                 <MobileNavbar
                     isAuthenticated={otpComplete}
+                    isEmployee={isEmployee}
                     onLogout={handleLogout}
                 />
             )}
@@ -190,15 +200,23 @@ function App() {
             />
             <Route
               path="/payment"
-              element={isAuthenticated && otpComplete ? <Payment onPayment={handlePayment} /> : <Navigate to="/login" />}
+              element={isAuthenticated && otpComplete && !isEmployee ? <Payment onPayment={handlePayment} /> : <Navigate to="/login" />}
             />
             <Route
               path="/mypayments"
-              element={isAuthenticated && otpComplete ? <UserPayments /> : <Navigate to="/login" />}
+              element={isAuthenticated && otpComplete && !isEmployee ? <UserPayments /> : <Navigate to="/login" />}
             />
             <Route
-              path="/"
-              element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />}
+              path="/employeelogin"
+              element= { <EmployeeLogin /> }
+            />
+            <Route
+              path="/transactionhistory"
+              element={isAuthenticated && otpComplete && isEmployee ? <TransactionHistory /> : <Navigate to="/employeelogin" />}
+            />
+            <Route
+              path="/users"
+              element={isAuthenticated && otpComplete && isEmployee ? <Users /> : <Navigate to="/employeelogin" />}
             />
             <Route
               path="*"
@@ -224,3 +242,7 @@ const chatContainerStyle: React.CSSProperties = {
 };
 
 export default App;
+
+
+
+
